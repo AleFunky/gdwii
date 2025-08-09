@@ -18,7 +18,7 @@ include $(DEVKITPPC)/wii_rules
 TARGET		:=	$(notdir $(CURDIR))
 BUILD		:=	build
 SOURCES		:=	source libraries
-DATA		:=	data data/objects data/portals data/glow data/icons data/levels data/sfx data/back_grounds data/perspective
+DATA		:=	data data/objects data/portals data/glow data/icons data/levels data/sfx data/back_grounds data/perspective data/menu
 INCLUDES	:=  libraries
 
 #---------------------------------------------------------------------------------

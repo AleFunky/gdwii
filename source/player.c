@@ -365,7 +365,7 @@ void cube_gamemode(Player *player) {
         player->on_ground = FALSE;
         player->buffering_state = BUFFER_END;
 
-        if (!state.input.pressedA || !state.input.pressed2orY) {
+        if (!state.input.pressedA || !state.input.pressed2orY || !state.input.pressedB) {
             player->vel_y -= player->gravity * STEPS_DT;
             printf("Second jump\n");
         } else {
@@ -515,7 +515,7 @@ void ufo_particles(Player *player) {
         }
         
         // Jump particles
-        if (state.input.pressedA || state.input.pressed2orY) {
+        if (state.input.pressedA || state.input.pressed2orY || state.input.pressedB) {
             for (s32 i = 0; i < 5; i++) {
                 spawn_particle(UFO_JUMP, x, y, NULL);
             }
@@ -533,7 +533,7 @@ void ufo_particles(Player *player) {
 void ufo_gamemode(Player *player) {
     int mult = (player->upside_down ? -1 : 1);
 
-    if (player->buffering_state == BUFFER_READY && (state.input.pressedA || state.input.pressed2orY || (state.old_player.gamemode == GAMEMODE_SHIP && (state.input.holdA || state.input.hold2orY)))) {
+    if (player->buffering_state == BUFFER_READY && (state.input.pressedA || state.input.pressed2orY || state.input.pressedB || (state.old_player.gamemode == GAMEMODE_SHIP && (state.input.holdA || state.input.hold2orY || state.input.pressedB)))) {
         player->vel_y = maxf(player->vel_y, player->mini ? 358.992 : 371.034);
         player->buffering_state = BUFFER_END;
         player->ufo_last_y = player->y;

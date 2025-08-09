@@ -139,6 +139,10 @@ extern int frameCount;
 extern GameState state;
 
 extern GRRLIB_texImg *font;
+extern GRRLIB_texImg *cursor;
+
+extern float ir_x;
+extern float ir_y;
 
 void draw_game();
 void update_input();

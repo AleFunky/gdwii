@@ -29,6 +29,7 @@
 #include "objects.h"
 
 #include "font_png.h"
+#include "cursor_png.h"
 
 #include "player.h"
 #include "math.h"
@@ -54,6 +55,7 @@ float fps = 0;
 GameState state;
 
 GRRLIB_texImg *font = NULL;
+GRRLIB_texImg *cursor = NULL;
 
 int frame_counter = 0;
 int old_frame_counter = 0;
@@ -78,6 +80,9 @@ int number_of_collisions = 0;
 int number_of_collisions_checks = 0;
 
 char launch_dir[256] = SDCARD_FOLDER;
+float ir_x;
+float ir_y;
+
 
 
 void draw_game() {
@@ -199,6 +204,13 @@ void update_input() {
 
     state.input.pressedDir = ((WPAD_ButtonsDown(WPAD_CHAN_0) & wpad_dir_mask) >> 8) | (PAD_ButtonsDown(PAD_CHAN0) & pad_dir_mask);
     state.input.holdDir =    ((WPAD_ButtonsHeld(WPAD_CHAN_0) & wpad_dir_mask) >> 8) | (PAD_ButtonsHeld(PAD_CHAN0) & pad_dir_mask);
+
+    WPAD_SetDataFormat(WPAD_CHAN_ALL, WPAD_FMT_BTNS_ACC_IR);
+
+    WPADData* data = WPAD_Data(0);
+    ir_x = data->ir.x;
+    ir_y = data->ir.y;
+
 }
 
 void set_launch_dir(const char* path) {
@@ -251,6 +263,10 @@ int main(int argc, char **argv) {
 
     font = GRRLIB_LoadTexturePNG(font_png);
     GRRLIB_InitTileSet(font, 24, 36, 32);
+    cursor = GRRLIB_LoadTexturePNG(cursor_png);
+
+    // hopefully this fixes the ir position
+    WPAD_SetVRes(WPAD_CHAN_0,screenWidth,screenHeight);
 
     full_init_variables();
     while(1) {
