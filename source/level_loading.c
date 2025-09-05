@@ -416,6 +416,29 @@ void free_string_array(char **arr, int count) {
     free(arr);
 }
 
+// Parse bool from string ("1" = true, else false)
+bool parse_bool(const char *str) {
+    return (str[0] == '1' && str[1] == '\0');
+}
+
+HSV parse_hsv_string(const char *string) {
+    int count = 0;
+    char **hsv_string = split_string(string, 'a', &count);
+    HSV obtained = { 0 };    
+
+    // Theres always 5 elements
+    if (count != 5) {
+        return obtained;
+    }
+
+    obtained.h = atoi(hsv_string[0]);
+    obtained.s = atof(hsv_string[1]);
+    obtained.v = atof(hsv_string[2]);
+    obtained.sChecked = parse_bool(hsv_string[3]);
+    obtained.sChecked = parse_bool(hsv_string[4]);
+    return obtained;
+}
+
 void parse_color_channel(GDColorChannel *channels, int i, char *channel_string) {
     GDColorChannel channel = {0};  // Zero-initialize
     int kvCount = 0;
@@ -435,7 +458,7 @@ void parse_color_channel(GDColorChannel *channels, int i, char *channel_string) 
             case 7:  channel.fromOpacity = atof(valStr); break;
             case 8:  channel.toggleOpacity = atoi(valStr) != 0; break;
             case 9:  channel.inheritedChannelID = atoi(valStr); break;
-            case 10: channel.hsv = atoi(valStr); break;
+            case 10: channel.hsv = parse_hsv_string(valStr); break;
             case 11: channel.toRed = atoi(valStr); break;
             case 12: channel.toGreen = atoi(valStr); break;
             case 13: channel.toBlue = atoi(valStr); break;
@@ -498,33 +521,17 @@ GDValueType get_value_type_for_key(int key) {
         case 23: return GD_VAL_INT;    // (Color Trigger) Target color ID
         case 24: return GD_VAL_INT;    // Zlayer
         case 25: return GD_VAL_INT;    // Zorder
+        case 32: return GD_VAL_FLOAT;  // Scale
+        case 41: return GD_VAL_BOOL;   // Main col HSV enabled
+        case 42: return GD_VAL_BOOL;   // Detail col HSV enabled
+        case 43: return GD_VAL_HSV;    // Main col HSV
+        case 44: return GD_VAL_HSV;    // Detail col HSV
+        case 49: return GD_VAL_HSV;    // (Color trigger) Copy color HSV
         case 50: return GD_VAL_INT;    // (Color trigger) Copy color id
+        case 128: return GD_VAL_FLOAT; // Scale x
+        case 129: return GD_VAL_FLOAT; // Scale y
         default:
             return GD_VAL_INT; // Default fallback
-    }
-}
-
-
-// Parse bool from string ("1" = true, else false)
-bool parse_bool(const char *str) {
-    return (str[0] == '1' && str[1] == '\0');
-}
-
-__unused void print_prop(int key, GDValueType type, GDValue value) {
-    printf("  Key %d, type %d, value = ", key, type);
-    switch (type) {
-        case GD_VAL_INT:
-            printf("%d\n", value.i);
-            break;
-        case GD_VAL_FLOAT:
-            printf("%f\n", value.f);
-            break;
-        case GD_VAL_BOOL:
-            printf("%s\n", value.b ? "true" : "false");
-            break;
-        default:
-            printf("Unknown type\n");
-            break;
     }
 }
 
@@ -557,6 +564,9 @@ int parse_gd_object(const char *objStr, GDObject *obj) {
                 break;
             case GD_VAL_BOOL:
                 obj->values[obj->propCount].b = parse_bool(valStr);
+                break;
+            case GD_VAL_HSV:
+                obj->values[obj->propCount].hsv = parse_hsv_string(valStr);
                 break;
             default:
                 obj->values[obj->propCount].i = atoi(valStr);
@@ -744,11 +754,18 @@ GameObject *convert_to_game_object(const GDObject *obj) {
         object->object.main_col_channel = 0;
         object->object.detail_col_channel = 0;
         object->object.u1p9_col_channel = 0;
+
+        object->object.scale_x = 1.f;
+        object->object.scale_y = 1.f;
     }
 
     // Temporarily convert user coins (added in 2.0) into secret coins
     object->id = convert_object(object->id);
-    
+
+    if (object->id >= OBJECT_COUNT && object->id != 899 && object->id != 915) {
+        object->id = 42;
+    }
+
     // Get a random value for this object
     object->random = rand();
 
@@ -794,6 +811,28 @@ GameObject *convert_to_game_object(const GDObject *obj) {
                 case 25: // Z order
                     if (type == GD_VAL_INT) object->object.zorder = val.i;
                     break;
+                case 32: // Scale
+                    if (type == GD_VAL_FLOAT) object->object.scale_x = object->object.scale_y = val.f;
+                    break;
+                case 41: // Main col HSV enabled
+                    if (type == GD_VAL_BOOL) object->object.main_col_HSV_enabled = val.b;
+                    break;
+                case 42: // Detail col HSV enabled
+                    if (type == GD_VAL_BOOL) object->object.detail_col_HSV_enabled = val.b;
+                    break;
+                case 43: // Main col HSV
+                    if (type == GD_VAL_HSV) object->object.main_col_HSV = val.hsv;
+                    break;
+                case 44: // Detail col HSV
+                    if (type == GD_VAL_HSV) object->object.detail_col_HSV = val.hsv;
+                    break;
+                    
+                case 128: // Scale x
+                    if (type == GD_VAL_FLOAT) object->object.scale_x = val.f;
+                    break;
+                case 129: // Scale y
+                    if (type == GD_VAL_FLOAT) object->object.scale_y = val.f;
+                    break;
             }
         } else {
             if (key == 11) { // Touch triggered
@@ -828,6 +867,9 @@ GameObject *convert_to_game_object(const GDObject *obj) {
                             break;
                         case 23: // Target color ID
                             if (type == GD_VAL_INT) object->trigger.col_trigger.target_color_id = val.i;
+                            break;
+                        case 49: // Copy color HSV
+                            if (type == GD_VAL_HSV) object->trigger.col_trigger.copied_hsv = val.hsv;
                             break;
                         case 50: // Copy color ID
                             if (type == GD_VAL_INT) object->trigger.col_trigger.copied_color_id = val.i;
@@ -864,16 +906,15 @@ GameObject *convert_to_game_object(const GDObject *obj) {
         }
     }
     
-
     ObjectHitbox hitbox = objects[object->id].hitbox;
 
     // Modify height and width depending on rotation
     if ((int) fabsf(object->rotation) % 180 != 0) {
-        object->width = hitbox.height;
-        object->height = hitbox.width;
+        object->width = hitbox.height * object->object.scale_y;
+        object->height = hitbox.width * object->object.scale_x;
     } else {
-        object->width = hitbox.width;
-        object->height = hitbox.height;
+        object->width = hitbox.width * object->object.scale_x;
+        object->height = hitbox.height * object->object.scale_y;
     }
 
 
@@ -1665,10 +1706,19 @@ void set_color_channels() {
 
             default:
                 if (id < COL_CHANNEL_COUNT) {
-                    channels[id].color.r = colorChannel.fromRed;
-                    channels[id].color.g = colorChannel.fromGreen;
-                    channels[id].color.b = colorChannel.fromBlue;
+                    Color color;
+                    color.r = colorChannel.fromRed;
+                    color.g = colorChannel.fromGreen;
+                    color.b = colorChannel.fromBlue;
+
                     channels[id].blending = colorChannel.blending;
+                    channels[id].copy_color_id = colorChannel.inheritedChannelID;
+
+                    if (colorChannel.inheritedChannelID > 0) {
+                        channels[id].hsv = colorChannel.hsv;
+                    }
+                    
+                    channels[id].color = color;
 
                     if (colorChannel.playerColor == 1) channels[id].color = p1;
                     if (colorChannel.playerColor == 2) channels[id].color = p2;

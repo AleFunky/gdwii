@@ -1003,6 +1003,7 @@ enum SpriteSheets {
 
 struct ColorChannel {
     Color color;
+    HSV hsv;
     bool blending;
     int copy_color_id;
 };
@@ -1012,6 +1013,7 @@ struct TriggerBuffer {
     Color old_color;
     Color new_color;
     int copy_channel_id;
+    HSV copy_channel_HSV;
     float seconds;
     float time_run;
 };

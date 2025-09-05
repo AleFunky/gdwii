@@ -106,7 +106,6 @@ typedef struct {
     KeyInput input;
 } GameState;
 
-
 enum GameRoutine {
     ROUTINE_MENU,
     ROUTINE_GAME

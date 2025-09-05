@@ -87,7 +87,7 @@ int create_button(int x, int y, int width, int height, bool show, GRRLIB_texImg 
 bool exit_menu = false;
 int error_code = 0;
 
-#define NUM_LVL_COLORS 18
+#define NUM_LVL_COLORS 20
 const int default_lvl_colors[NUM_LVL_COLORS] = {
   RGBA(0, 0, 232, 255), // Stereo Madness
   RGBA(227, 0, 229, 255), // Back on Track
@@ -107,10 +107,11 @@ const int default_lvl_colors[NUM_LVL_COLORS] = {
   RGBA(0, 231, 0, 255), // HF
   RGBA(0, 228, 228, 255), // BP
   RGBA(0, 112, 231, 255), // ToE2
+  RGBA(0, 0, 0xE9, 255), // Geometrical Dominator
+  RGBA(0xE6, 0, 0xE8, 255), // Deadlocked
 };
 
-#define NUM_LVL_DIFFICULTY 23
-const int default_level_difficulty[NUM_LVL_DIFFICULTY] = {
+const int default_level_difficulty[LEVEL_NUM] = {
   0, // Stereo Madness | easy
   0, // Back on Track | easy
   1, // Polargeist | normal
@@ -129,6 +130,8 @@ const int default_level_difficulty[NUM_LVL_DIFFICULTY] = {
   4, // HF
   3, // BP
   5, // ToE2
+  4, // Geometrical Dominator
+  5, // Deadlocked
   0,
   5,
   5,

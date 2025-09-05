@@ -34,6 +34,10 @@
 
 #include "TheoryofEverything2_gmd.h"
 
+#include "GeometricalDominator_gmd.h"
+
+#include "Deadlocked_gmd.h"
+
 #include "LevelEasy_gmd.h"
 #include "DemonPark_gmd.h"
 #include "TheNightmare_gmd.h"

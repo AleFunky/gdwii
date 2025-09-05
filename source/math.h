@@ -1,5 +1,6 @@
 #pragma once
 #include <grrlib.h>
+#include "structs.h"
 #include "level_loading.h"
 #include "font_stuff.h"
 
@@ -9,22 +10,6 @@
 #define FADE_DURATION 0.25f
 #define FADE_SPEED (255 / FADE_DURATION)
 
-typedef struct {
-    float x, y;
-} Vec2D;
-
-typedef struct {
-    u8 r;
-    u8 b;
-    u8 g;
-} Color;
-
-typedef struct {
-    float r;
-    float g;
-    float b;
-    float a;
-} ColorAlpha;
 
 extern Mtx                 GXmodelView2D;
 
@@ -96,3 +81,5 @@ void wait_initial_time();
 
 float get_text_length(struct charset font, const float zoom, const char *text, ...);
 void draw_text(struct charset font, GRRLIB_texImg *tex, const float x, const float y, const float zoom, const char *text, ...);
+
+Color HSV_combine(Color color, HSV hsv);

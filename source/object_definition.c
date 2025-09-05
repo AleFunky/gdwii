@@ -760,7 +760,23 @@ const ObjectDefinition objects[OBJECT_COUNT] = {
         .def_zorder = 9,
         .num_layers = 1
     },
-    unknown, // 42
+    { // 42 REMOVE, ONLY FOR TESTING
+        .layers = {
+            {
+                .x_offset = 0,
+                .y_offset = 0,
+                .col_channel = 1,
+                .zlayer_offset = 0,
+                .color_type = COLOR_MAIN,
+                .texture = lightsquare_01_02_color_001_png
+            }
+        },
+        .hitbox = no_hitbox,
+        .spritesheet_layer = SHEET_BLOCKS,
+        .def_zlayer = LAYER_B2,
+        .def_zorder = -7,
+        .num_layers = 1
+    },
     unknown, // 43
     unknown, // 44
     { // Orange mirror portal

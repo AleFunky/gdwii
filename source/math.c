@@ -11,6 +11,8 @@
 #include "font_stuff.h"
 #include <stdio.h>
 
+#include "../libraries/color.h"
+
 Vec2D normalize(Vec2D v) {
     float len = sqrtf(v.x*v.x + v.y*v.y);
     return (Vec2D){ v.x / len, v.y / len };
@@ -960,4 +962,37 @@ void draw_text(struct charset font, GRRLIB_texImg *tex, const float x, const flo
             offset += xadvance;
         }
     }
+}
+
+Color HSV_combine(Color color, HSV hsv) {
+    if (hsv.h == 0 && hsv.s == 0 && hsv.v == 0) {
+        return color;
+    }
+
+    HSV color_hsv;
+    convertRGBtoHSV(color.r, color.g, color.b, &color_hsv.h, &color_hsv.s, &color_hsv.v);
+
+    hsv.h += color_hsv.h;
+
+    if (hsv.sChecked) {
+        hsv.s += color_hsv.s;
+    } else {
+        hsv.s *= color_hsv.s;
+    }
+    
+    if (hsv.vChecked) {
+        hsv.v += color_hsv.v;
+    } else {
+        hsv.v *= color_hsv.v;
+    }
+
+    if (hsv.h < 0) hsv.h += 360;
+    if (hsv.h >= 360) hsv.h -= 360;
+    if (hsv.s > 1) hsv.s = 1;
+    if (hsv.v > 1) hsv.v = 1;
+
+    Color returned_color;
+    convertHSVtoRGB(hsv.h, hsv.s, hsv.v, &returned_color.r, &returned_color.g, &returned_color.b);
+
+    return returned_color;
 }

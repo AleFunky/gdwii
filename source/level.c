@@ -76,6 +76,14 @@ LevelDefinition levels[] = {
         .data_ptr = TheoryofEverything2_gmd
     },
     {
+        .level_name = "Geometrical Dominator",
+        .data_ptr = GeometricalDominator_gmd
+    },
+    {
+        .level_name = "Deadlocked",
+        .data_ptr = Deadlocked_gmd
+    },
+    {
         .level_name = "Level Easy",
         .data_ptr  = LevelEasy_gmd
     },
@@ -169,6 +177,14 @@ SongDefinition songs[] = {
     {
         .song_name = "TheoryOfEverything2.mp3",
         .tempo = 132
+    },
+    {
+        .song_name = "GeometricalDominator.mp3",
+        .tempo = 148
+    },
+    {
+        .song_name = "Deadlocked.mp3",
+        .tempo = 135
     }
 };
 

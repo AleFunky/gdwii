@@ -1392,6 +1392,21 @@ bool is_modifiable(int col_channel) {
     return TRUE;
 }
 
+u32 get_layer_color(GameObject *obj, GDObjectLayer *layer, int col_channel, float opacity) {
+    Color color;
+    color.r = channels[col_channel].color.r;
+    color.g = channels[col_channel].color.g;
+    color.b = channels[col_channel].color.b;
+
+    if (layer->layer->color_type == COLOR_MAIN && obj->object.main_col_HSV_enabled) {
+        color = HSV_combine(color, obj->object.main_col_HSV);
+    } else if (layer->layer->color_type == COLOR_DETAIL && obj->object.detail_col_HSV_enabled) {
+        color = HSV_combine(color, obj->object.detail_col_HSV);
+        //printf("%.2f, %.2f, %.2f, %i %i\n", obj->object.detail_col_HSV.h, obj->object.detail_col_HSV.s, obj->object.detail_col_HSV.v, obj->object.detail_col_HSV.sChecked, obj->object.detail_col_HSV.vChecked);
+    }
+    return RGBA(color.r, color.g, color.b, opacity);
+}
+
 static inline void put_object_layer(GameObject *obj, float x, float y, GDObjectLayer *layer) {
     int obj_id = obj->id;
 
@@ -1425,7 +1440,7 @@ static inline void put_object_layer(GameObject *obj, float x, float y, GDObjectL
         opacity *= get_fading_obj_fade(obj, x, screenWidth);
     }
 
-    u32 color = RGBA(channels[col_channel].color.r, channels[col_channel].color.g, channels[col_channel].color.b, opacity);
+    u32 color = get_layer_color(obj, layer, col_channel, opacity);
 
     // If it is invisible because of blending, skip
     if ((blending == GRRLIB_BLEND_ADD && !(color & ~0xff)) || opacity == 0) return;
@@ -1495,8 +1510,8 @@ static inline void put_object_layer(GameObject *obj, float x, float y, GDObjectL
         /* Y        */ y + 6 - (height/2) + y_off_rot + fade_y,
         /* Texture  */ tex, 
         /* Rotation */ rotation, 
-        /* Scale X  */ BASE_SCALE * x_flip_mult * fade_scale * state.mirror_mult, 
-        /* Scale Y  */ BASE_SCALE * y_flip_mult * fade_scale, 
+        /* Scale X  */ BASE_SCALE * x_flip_mult * fade_scale * state.mirror_mult * obj->object.scale_x, 
+        /* Scale Y  */ BASE_SCALE * y_flip_mult * fade_scale * obj->object.scale_y, 
         /* Color    */ color
     );
 }
@@ -1961,7 +1976,10 @@ void handle_col_triggers() {
             if (buffer->time_run > buffer->seconds) {
                 buffer->active = FALSE;
                 if (buffer->copy_channel_id) {
+                    channels[chan].hsv = buffer->copy_channel_HSV;
                     channels[chan].copy_color_id = buffer->copy_channel_id;
+                } else {
+                    channels[chan].copy_color_id = 0;
                 }
                 channels[chan].color = color_to_lerp;
             }
@@ -1973,7 +1991,9 @@ void handle_copy_channels() {
     for (int chan = 0; chan < COL_CHANNEL_COUNT; chan++) {
         int copy_color_id = channels[chan].copy_color_id;
         if (copy_color_id > 0) {
-            channels[chan].color = channels[copy_color_id].color;
+            Color color = channels[copy_color_id].color;
+            color = HSV_combine(color, channels[chan].hsv);
+            channels[chan].color = color;
         }
     }
 }
@@ -1999,7 +2019,10 @@ void upload_to_buffer(GameObject *obj, int channel) {
 
     int copy_color_id = obj->trigger.col_trigger.copied_color_id;
     if (copy_color_id > 0) {
-       buffer->copy_channel_id = copy_color_id;
+        buffer->copy_channel_HSV = obj->trigger.col_trigger.copied_hsv;
+        buffer->copy_channel_id = copy_color_id;
+    } else {
+        buffer->copy_channel_id = 0;
     }
 
     if (channel < BG) {

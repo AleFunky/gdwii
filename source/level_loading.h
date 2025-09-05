@@ -1,9 +1,12 @@
 #pragma once
 
+#include "math.h"
+
 typedef enum {
     GD_VAL_INT,
     GD_VAL_FLOAT,
     GD_VAL_BOOL,
+    GD_VAL_HSV,
     GD_VAL_UNKNOWN
 } GDValueType;
 
@@ -11,6 +14,7 @@ typedef union {
     int i;
     float f;
     bool b;
+    HSV hsv;
 } GDValue;
 
 typedef struct {
@@ -25,6 +29,7 @@ typedef struct {
     float trig_duration; // key 10
     
     int target_color_id; // key 23
+    HSV copied_hsv;      // key 49
     int copied_color_id; // key 50
 } ColTrigger;
 
@@ -43,6 +48,14 @@ typedef struct {
     int zsheetlayer;     // no key has this, but used internally
     int zlayer;          // key 24
     int zorder;          // key 25
+
+    float scale_x;         // key 32 and 128
+    float scale_y;         // key 32 and 129
+
+    bool main_col_HSV_enabled;
+    bool detail_col_HSV_enabled;
+    HSV main_col_HSV;
+    HSV detail_col_HSV;
 
     // Slope
     unsigned char orientation;
@@ -134,7 +147,7 @@ typedef struct {
     float fromOpacity;
     bool toggleOpacity;
     int inheritedChannelID;
-    int hsv; // convert to struct
+    HSV hsv;
     int toRed;
     int toGreen;
     int toBlue;

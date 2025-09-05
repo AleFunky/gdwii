@@ -352,7 +352,17 @@
         "ranges": "c",
         "span": "c",
         "string": "c",
-        "bigfont_png.h": "c"
+        "bigfont_png.h": "c",
+        "font_stuff.h": "c",
+        "atomic": "c",
+        "bit": "c",
+        "concepts": "c",
+        "optional": "c",
+        "memory": "c",
+        "numeric": "c",
+        "stdexcept": "c",
+        "streambuf": "c",
+        "system_error": "c"
     },
     "cmake.ignoreCMakeListsMissing": true
 }
