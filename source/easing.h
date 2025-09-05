@@ -1,5 +1,5 @@
 typedef enum {
-    LINEAR,
+    EASE_LINEAR,
 
     EASE_IN,
     EASE_OUT,

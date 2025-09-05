@@ -21,6 +21,8 @@
 #include "particle_png.h"
 #include <ogc/lwp_watchdog.h>
 
+#include "groups.h"
+
 GRRLIB_texImg *prev_tex = NULL;
 int prev_blending = GRRLIB_BLEND_ALPHA;
 
@@ -829,7 +831,8 @@ int current_fading_effect = FADE_NONE;
 
 bool p1_trail = FALSE;
 
-struct TriggerBuffer trigger_buffer[COL_CHANNEL_COUNT];
+struct ColTriggerBuffer col_trigger_buffer[COL_CHANNEL_COUNT];
+struct MoveTriggerBuffer move_trigger_buffer[MAX_MOVING_OBJECTS];
 
 int find_existing_texture(int curr_object, const unsigned char *texture) {
     for (s32 object = 1; object < curr_object; object++) {
@@ -1952,7 +1955,7 @@ void draw_all_object_layers() {
 
 void handle_col_triggers() {
     for (int chan = 0; chan < COL_CHANNEL_COUNT; chan++) {
-        struct TriggerBuffer *buffer = &trigger_buffer[chan];
+        struct ColTriggerBuffer *buffer = &col_trigger_buffer[chan];
 
         if (buffer->active) {
             Color lerped_color;
@@ -2000,7 +2003,7 @@ void handle_copy_channels() {
 
 void upload_to_buffer(GameObject *obj, int channel) {
     if (channel == 0) channel = 1;
-    struct TriggerBuffer *buffer = &trigger_buffer[channel];
+    struct ColTriggerBuffer *buffer = &col_trigger_buffer[channel];
     buffer->active = TRUE;
     buffer->old_color = channels[channel].color;
     if (obj->trigger.col_trigger.p1_color) {
@@ -2028,8 +2031,215 @@ void upload_to_buffer(GameObject *obj, int channel) {
     if (channel < BG) {
         channels[channel].blending = obj->trigger.col_trigger.blending;
     }
-    buffer->seconds = obj->trigger.col_trigger.trig_duration;
+    buffer->seconds = obj->trigger.trig_duration;
     buffer->time_run = 0;
+}
+
+int convert_ease(int easing) {
+    switch (easing) {
+        case 0: return EASE_LINEAR;
+
+        case 1: return EASE_IN_OUT;
+        case 2: return EASE_IN;
+        case 3: return EASE_OUT;
+        
+        case 4: return ELASTIC_IN_OUT;
+        case 5: return ELASTIC_IN;
+        case 6: return ELASTIC_OUT;
+        
+        case 7: return BOUNCE_IN_OUT;
+        case 8: return BOUNCE_IN;
+        case 9: return BOUNCE_OUT;
+        
+        case 10: return EXPO_IN_OUT;
+        case 11: return EXPO_IN;
+        case 12: return EXPO_OUT;
+        
+        case 13: return SINE_IN_OUT;
+        case 14: return SINE_IN;
+        case 15: return SINE_OUT;
+        
+        case 16: return BACK_IN_OUT;
+        case 17: return BACK_IN;
+        case 18: return BACK_OUT;
+    }
+    return EASE_LINEAR;
+}
+
+void handle_move_triggers() {
+    // First reset deltas
+    for (int slot = 0; slot < MAX_MOVING_OBJECTS; slot++) {
+        struct MoveTriggerBuffer *buffer = &move_trigger_buffer[slot];
+
+        if (buffer->active) {
+            for (Node *p = get_group(buffer->target_group); p; p = p->next) {
+                p->obj->object.delta_x = 0;
+                p->obj->object.delta_y = 0;   
+            }
+        }
+    }
+
+    for (int slot = 0; slot < MAX_MOVING_OBJECTS; slot++) {
+        struct MoveTriggerBuffer *buffer = &move_trigger_buffer[slot];
+
+        if (buffer->active) {
+            // Iterate through group objects
+            int i = 0;
+            for (Node *p = get_group(buffer->target_group); p; p = p->next) {
+                GameObject *obj = p->obj;
+
+                float player_delta_x = state.player.vel_x * STEPS_DT;
+                float player_delta_y = state.player.vel_y * STEPS_DT;
+
+                // Calculate delta
+                float delta_x;
+                float delta_y;
+                if (buffer->lock_to_player_x) {
+                    delta_x = player_delta_x;
+                } else {
+                    float initial_x = buffer->initial_positions[i].x;
+                    float final_x = initial_x + buffer->offsetX;
+                    
+                    float before_x = easeValue(convert_ease(buffer->easing), initial_x, final_x, buffer->time_run - STEPS_DT, buffer->seconds, 2.0f);
+                    float after_x = easeValue(convert_ease(buffer->easing), initial_x, final_x, buffer->time_run, buffer->seconds, 2.0f);
+                    
+                    delta_x = after_x - before_x;
+                } 
+                
+                if (buffer->lock_to_player_y) {
+                    delta_y = player_delta_y;
+                } else {
+                    float initial_y = buffer->initial_positions[i].y;
+                    float final_y = initial_y + buffer->offsetY;
+
+                    float before_y = easeValue(convert_ease(buffer->easing), initial_y, final_y, buffer->time_run - STEPS_DT, buffer->seconds, 2.0f);
+                    float after_y = easeValue(convert_ease(buffer->easing), initial_y, final_y, buffer->time_run, buffer->seconds, 2.0f);
+
+                    delta_y = after_y - before_y;
+                }
+
+                float new_x = obj->x + delta_x;
+                float new_y = obj->y + delta_y;
+
+                obj->object.delta_x += delta_x / STEPS_DT;
+                obj->object.delta_y += delta_y / STEPS_DT;
+
+                if (obj->object.touching_player) {
+                    Player *player;
+                    if (obj->object.touching_player == 1) {
+                        player = &state.player;
+                    } else if (obj->object.touching_player >= 2) {
+                        player = &state.player2;
+                    }
+
+                    float grav_delta_y = grav(player, delta_y / STEPS_DT);
+                    if (grav_delta_y >= -MOVE_SPEED_DIVIDER) {
+                        player->y += delta_y;
+                    }
+                } else if (obj->object.prev_touching_player) {
+                    // Exiting
+                    Player *player;
+                    if (obj->object.prev_touching_player == 1) {
+                        player = &state.player;
+                    } else if (obj->object.prev_touching_player >= 2) {
+                        player = &state.player2;
+                    }
+
+                    float grav_delta_y = grav(player, delta_y / STEPS_DT);
+                    if (grav_delta_y < -MOVE_SPEED_DIVIDER) {
+                        // Nothing
+                    } else if (grav_delta_y <= 0) {
+                        // Nothing
+                    } else if (grav_delta_y <= MOVE_SPEED_DIVIDER) {
+                        // Nothing
+                    } else {
+                        player->vel_y = grav_delta_y;
+                    }
+                }
+
+                update_object_section(obj, new_x, new_y);
+                
+                obj->x = new_x;
+                obj->y = new_y;
+
+                i++;
+            }
+            //printf("%d objects damn\n", i);
+            buffer->time_run += STEPS_DT;
+
+            if (buffer->time_run > buffer->seconds) {
+                buffer->active = FALSE;
+                
+                // Clear deltas
+                for (Node *p = get_group(buffer->target_group); p; p = p->next) {
+                    GameObject *obj = p->obj;
+                    
+                    float delta_y = p->obj->object.delta_y * STEPS_DT;
+                    if (obj->object.touching_player) {
+                        Player *player;
+                        if (obj->object.touching_player == 1) {
+                            player = &state.player;
+                        } else if (obj->object.touching_player >= 2) {
+                            player = &state.player2;
+                        } else {
+                            player = &state.player;
+                        }
+
+                        float grav_delta_y = grav(player, delta_y / STEPS_DT);
+                        if (grav_delta_y < -MOVE_SPEED_DIVIDER) {
+                            // Nothing
+                        } else if (grav_delta_y <= 0) {
+                            // Nothing
+                        } else if (grav_delta_y <= MOVE_SPEED_DIVIDER) {
+                            // Nothing
+                        } else {
+                            player->vel_y = grav_delta_y;
+                        }
+                    }
+                    
+                    obj->object.delta_x = 0;
+                    obj->object.delta_y = 0;   
+                }
+            }
+        }
+    }
+}
+
+int obtain_free_move_slot() {
+    for (int i = 0; i < MAX_MOVING_OBJECTS; i++) {
+        if (!move_trigger_buffer[i].active) return i;
+    }
+    return -1;
+}
+
+void upload_to_move_buffer(GameObject *obj) {
+    int slot = obtain_free_move_slot();
+    if (slot >= 0) {
+        struct MoveTriggerBuffer *buffer = &move_trigger_buffer[slot];
+
+        buffer->easing = obj->trigger.move_trigger.easing;
+
+        buffer->offsetX = obj->trigger.move_trigger.offsetX;
+        buffer->offsetY = obj->trigger.move_trigger.offsetY;
+
+        buffer->lock_to_player_x = obj->trigger.move_trigger.lock_to_player_x;
+        buffer->lock_to_player_y = obj->trigger.move_trigger.lock_to_player_y;
+
+        buffer->target_group = obj->trigger.move_trigger.target_group;
+
+        buffer->time_run = 0;
+        buffer->seconds = obj->trigger.trig_duration;
+
+        int i = 0;
+        for (Node *p = get_group(buffer->target_group); p && i < MAX_OBJECTS_IN_GROUP; p = p->next) {
+            buffer->initial_positions[i].x = p->obj->x;
+            buffer->initial_positions[i].y = p->obj->y;
+            i++;
+        }
+        buffer->objects_in_group = i;
+        
+        buffer->active = TRUE;
+    }
 }
 
 void run_trigger(GameObject *obj) {
@@ -2126,6 +2336,10 @@ void run_trigger(GameObject *obj) {
         case 899: // 2.0 color trigger
             upload_to_buffer(obj, obj->trigger.col_trigger.target_color_id);
             break;
+        
+        case 901: // Move trigger
+            upload_to_move_buffer(obj);
+            break;
     }
     obj->activated[0] = TRUE;
 }
@@ -2193,5 +2407,6 @@ void handle_objects() {
     }
     calculate_lbg();
     handle_col_triggers();
+    handle_move_triggers();
     handle_copy_channels();
 }

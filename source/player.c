@@ -43,43 +43,6 @@ MotionTrail wave_trail_p2;
 Color p1;
 Color p2;
 
-inline static float getTop(Player *player)  { return player->y + player->height / 2; }
-inline static float getBottom(Player *player)  { return player->y - player->height / 2; }
-
-inline static float getGroundTop(Player *player)  { return player->y + (player->height / 2) + ((player->gamemode == GAMEMODE_WAVE) ? (player->mini ? 3 : 5) : 0); }
-inline static float getGroundBottom(Player *player)  { return player->y - (player->height / 2) - ((player->gamemode == GAMEMODE_WAVE) ? (player->mini ? 3 : 5) : 0); }
-
-inline static float getRight(Player *player)  { return player->x + player->width / 2; }
-inline static float getLeft(Player *player)  { return player->x - player->width / 2; }
-
-inline static float getInternalTop(Player *player)  { return player->y + player->internal_hitbox.height / 2; }
-inline static float getInternalBottom(Player *player)  { return player->y - player->internal_hitbox.height / 2; }
-inline static float getInternalRight(Player *player)  { return player->x + player->internal_hitbox.width / 2; }
-inline static float getInternalLeft(Player *player)  { return player->x - player->internal_hitbox.width / 2; }
-
-inline static float gravBottom(Player *player) { return player->upside_down ? -getTop(player) : getBottom(player); }
-inline static float gravTop(Player *player) { return player->upside_down ? -getBottom(player) : getTop(player); }
-
-inline static float gravInternalBottom(Player *player) { return player->upside_down ? -getInternalTop(player) : getInternalBottom(player); }
-inline static float gravInternalTop(Player *player) { return player->upside_down ? -getInternalBottom(player) : getInternalTop(player); }
-
-inline static float grav(Player *player, float val) { return player->upside_down ? -val : val; }
-
-inline static float obj_getTop(GameObject *object)  { 
-    return object->y + object->height / 2; 
-}
-inline static float obj_getBottom(GameObject *object)  { 
-    return object->y - object->height / 2; 
-}
-inline static float obj_getRight(GameObject *object)  {  
-    return object->x + object->width / 2; 
-}
-inline static float obj_getLeft(GameObject *object)  { 
-    return object->x - object->width / 2; 
-}
-inline static float obj_gravBottom(Player *player, GameObject *object) { return player->upside_down ? -obj_getTop(object) : obj_getBottom(object); }
-inline static float obj_gravTop(Player *player, GameObject *object) { return player->upside_down ? -obj_getBottom(object) : obj_getTop(object); }
-
 const float player_speeds[SPEED_COUNT] = {
 	251.16007972276924,
 	311.580093712804,
@@ -175,9 +138,11 @@ void handle_collision(Player *player, GameObject *obj, ObjectHitbox *hitbox) {
                     state.dead = TRUE;
                 }
             // Check snap for player bottom
-            } else if (obj_gravTop(player, obj) - gravBottom(player) <= clip && player->vel_y <= 0 && !slope_condition && player->gamemode != GAMEMODE_WAVE) {
+            } else if (obj_gravTop(player, obj) - gravBottom(player) <= clip && player->vel_y <= CLAMP(obj->object.delta_y, 3000, 0) && !slope_condition && player->gamemode != GAMEMODE_WAVE) {
                 player->y = grav(player, obj_gravTop(player, obj)) + grav(player, player->height / 2);
                 player->vel_y = 0;
+                printf("%.2f\n", obj->object.delta_y);
+                obj->object.touching_player = state.current_player + 1;
                 player->on_ground = TRUE;
                 player->inverse_rotation = FALSE;
                 player->time_since_ground = 0;
@@ -189,13 +154,15 @@ void handle_collision(Player *player, GameObject *obj, ObjectHitbox *hitbox) {
                 }
                 // Behave normally
                 if (player->gamemode != GAMEMODE_CUBE || gravSnap) {
-                    if (((gravTop(player) - obj_gravBottom(player, obj) <= clip && player->vel_y > 0) || gravSnap) && !slope_condition) {
-                        player->vel_y = 0;
+                    if (((gravTop(player) - obj_gravBottom(player, obj) <= clip && player->vel_y > obj->object.delta_y) || gravSnap) && !slope_condition) {
                         if (!gravSnap) player->on_ceiling = TRUE;
                         player->inverse_rotation = FALSE;
                         player->time_since_ground = 0;
                         player->ceiling_inv_time = 0;
+                        obj->object.touching_player = state.current_player + 1;
                         player->y = grav(player, obj_gravBottom(player, obj)) - grav(player, player->height / 2);
+                        player->vel_y = 0;
+                        printf("%.2f %.2f\n", obj->object.delta_y, player->vel_y);
                     }
                 }
             }
@@ -218,6 +185,8 @@ void collide_with_obj(Player *player, GameObject *obj) {
 
     if (hitbox->type != HITBOX_NONE && !obj->toggled && obj->id < OBJECT_COUNT) {
         number_of_collisions_checks++;
+        obj->object.prev_touching_player = obj->object.touching_player;
+        obj->object.touching_player = 0;
         if (hitbox->is_circular) {
             if (intersect_rect_circle(
                 player->x, player->y, player->width, player->height, player->rotation, 
@@ -1010,7 +979,7 @@ void handle_player(Player *player) {
     player->timeElapsed += STEPS_DT;
 
     u32 t0 = gettime();
-    collide_with_objects(player);
+    if (player->cutscene_timer == 0) collide_with_objects(player);
     u32 t1 = gettime();
     collision_time = ticks_to_microsecs(t1 - t0) / 1000.f * 4.f;
     

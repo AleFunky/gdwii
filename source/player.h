@@ -151,6 +151,43 @@ bool slope_touching(GameObject *obj, Player *player);
 void run_camera();
 float get_slope_angle(GameObject *obj);
 
+inline float getTop(Player *player)  { return player->y + player->height / 2; }
+inline float getBottom(Player *player)  { return player->y - player->height / 2; }
+
+inline float getGroundTop(Player *player)  { return player->y + (player->height / 2) + ((player->gamemode == GAMEMODE_WAVE) ? (player->mini ? 3 : 5) : 0); }
+inline float getGroundBottom(Player *player)  { return player->y - (player->height / 2) - ((player->gamemode == GAMEMODE_WAVE) ? (player->mini ? 3 : 5) : 0); }
+
+inline float getRight(Player *player)  { return player->x + player->width / 2; }
+inline float getLeft(Player *player)  { return player->x - player->width / 2; }
+
+inline float getInternalTop(Player *player)  { return player->y + player->internal_hitbox.height / 2; }
+inline float getInternalBottom(Player *player)  { return player->y - player->internal_hitbox.height / 2; }
+inline float getInternalRight(Player *player)  { return player->x + player->internal_hitbox.width / 2; }
+inline float getInternalLeft(Player *player)  { return player->x - player->internal_hitbox.width / 2; }
+
+inline float gravBottom(Player *player) { return player->upside_down ? -getTop(player) : getBottom(player); }
+inline float gravTop(Player *player) { return player->upside_down ? -getBottom(player) : getTop(player); }
+
+inline float gravInternalBottom(Player *player) { return player->upside_down ? -getInternalTop(player) : getInternalBottom(player); }
+inline float gravInternalTop(Player *player) { return player->upside_down ? -getInternalBottom(player) : getInternalTop(player); }
+
+inline float grav(Player *player, float val) { return player->upside_down ? -val : val; }
+
+inline float obj_getTop(GameObject *object)  { 
+    return object->y + object->height / 2; 
+}
+inline float obj_getBottom(GameObject *object)  { 
+    return object->y - object->height / 2; 
+}
+inline float obj_getRight(GameObject *object)  {  
+    return object->x + object->width / 2; 
+}
+inline float obj_getLeft(GameObject *object)  { 
+    return object->x - object->width / 2; 
+}
+inline float obj_gravBottom(Player *player, GameObject *object) { return player->upside_down ? -obj_getTop(object) : obj_getBottom(object); }
+inline float obj_gravTop(Player *player, GameObject *object) { return player->upside_down ? -obj_getBottom(object) : obj_getTop(object); }
+
 void add_new_hitbox(Player *player);
 void draw_hitbox(GameObject *obj);
 void draw_player_hitbox(Player *player);

@@ -130,7 +130,7 @@ const int default_level_difficulty[LEVEL_NUM] = {
   4, // HF
   3, // BP
   5, // ToE2
-  4, // Geometrical Dominator
+  3, // Geometrical Dominator
   5, // Deadlocked
   0,
   5,

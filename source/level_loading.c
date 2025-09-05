@@ -18,6 +18,8 @@
 
 #include "../libraries/color.h"
 
+#include "groups.h"
+
 #include "bg_01_png.h"
 #include "bg_02_png.h"
 #include "bg_03_png.h"
@@ -134,6 +136,41 @@ void assign_object_to_section(GameObject *obj) {
         sec->objects = realloc(sec->objects, sizeof(GameObject*) * sec->object_capacity);
     }
     sec->objects[sec->object_count++] = obj;
+}
+
+void update_object_section(GameObject *obj, float new_x, float new_y) {
+    if (!obj) return;
+
+    // obtain old section
+    int old_sx = (int)(obj->x / SECTION_SIZE);
+    int old_sy = (int)(obj->y / SECTION_SIZE);
+    unsigned int old_h = section_hash_func(old_sx, old_sy);
+
+    Section *sec = section_hash[old_h];
+    while (sec) {
+        if (sec->x == old_sx && sec->y == old_sy) {
+            // Remove object from old section
+            for (int i = 0; i < sec->object_count; i++) {
+                if (sec->objects[i] == obj) {
+                    // Shift elements down
+                    for (int j = i; j < sec->object_count - 1; j++) {
+                        sec->objects[j] = sec->objects[j + 1];
+                    }
+                    sec->object_count--;
+                    break;
+                }
+            }
+            break;
+        }
+        sec = sec->next;
+    }
+
+    // Update position
+    obj->x = new_x;
+    obj->y = new_y;
+
+    // Reassign object
+    assign_object_to_section(obj);
 }
 
 
@@ -439,6 +476,16 @@ HSV parse_hsv_string(const char *string) {
     return obtained;
 }
 
+void parse_ints(short *int_array, const char *string) {
+    int count = 0;
+    char **ints = split_string(string, '.', &count);
+    
+    for (int j = 0; j < MAX_GROUPS_PER_OBJECT; j += 1) {
+        if (j < count) int_array[j] = (short) atoi(ints[j]);
+        else int_array[j] = 0;
+    }
+}
+
 void parse_color_channel(GDColorChannel *channels, int i, char *channel_string) {
     GDColorChannel channel = {0};  // Zero-initialize
     int kvCount = 0;
@@ -518,9 +565,12 @@ GDValueType get_value_type_for_key(int key) {
         case 19: return GD_VAL_INT;    // 1.9 color channel
         case 21: return GD_VAL_INT;    // Main col channel
         case 22: return GD_VAL_INT;    // Detail col channel
-        case 23: return GD_VAL_INT;    // (Color Trigger) Target color ID
+        case 23: return GD_VAL_INT;    // (Color trigger) Target color ID
         case 24: return GD_VAL_INT;    // Zlayer
         case 25: return GD_VAL_INT;    // Zorder
+        case 28: return GD_VAL_INT;    // (Move trigger) Offset X
+        case 29: return GD_VAL_INT;    // (Move trigger) Offset Y
+        case 30: return GD_VAL_INT;    // (Various) Easing
         case 32: return GD_VAL_FLOAT;  // Scale
         case 41: return GD_VAL_BOOL;   // Main col HSV enabled
         case 42: return GD_VAL_BOOL;   // Detail col HSV enabled
@@ -528,6 +578,9 @@ GDValueType get_value_type_for_key(int key) {
         case 44: return GD_VAL_HSV;    // Detail col HSV
         case 49: return GD_VAL_HSV;    // (Color trigger) Copy color HSV
         case 50: return GD_VAL_INT;    // (Color trigger) Copy color id
+        case 57: return GD_VAL_INT_ARRAY; // Groups
+        case 58: return GD_VAL_BOOL;   // (Move trigger) Lock to player x
+        case 59: return GD_VAL_BOOL;   // (Move trigger) Lock to player y
         case 128: return GD_VAL_FLOAT; // Scale x
         case 129: return GD_VAL_FLOAT; // Scale y
         default:
@@ -567,6 +620,13 @@ int parse_gd_object(const char *objStr, GDObject *obj) {
                 break;
             case GD_VAL_HSV:
                 obj->values[obj->propCount].hsv = parse_hsv_string(valStr);
+                break;
+            case GD_VAL_INT_ARRAY:
+                short array[MAX_GROUPS_PER_OBJECT];
+                parse_ints(array, valStr);
+                for (int i = 0; i < MAX_GROUPS_PER_OBJECT; i++) {
+                    obj->values[obj->propCount].int_array[i] = array[i];
+                }
                 break;
             default:
                 obj->values[obj->propCount].i = atoi(valStr);
@@ -734,6 +794,8 @@ ObjectType obtain_type_from_id(int id) {
         case 899: // 2.0 col trigger
         case 915: // 2.0 line trigger
             return COL_TRIGGER;
+        case 901:
+            return MOVE_TRIGGER;
 
     }
     return NORMAL_OBJECT;
@@ -762,7 +824,7 @@ GameObject *convert_to_game_object(const GDObject *obj) {
     // Temporarily convert user coins (added in 2.0) into secret coins
     object->id = convert_object(object->id);
 
-    if (object->id >= OBJECT_COUNT && object->id != 899 && object->id != 915) {
+    if (object->id >= OBJECT_COUNT && object->id != 901 && object->id != 899 && object->id != 915) {
         object->id = 42;
     }
 
@@ -790,6 +852,13 @@ GameObject *convert_to_game_object(const GDObject *obj) {
                 break;
             case 6:  // Rotation
                 if (type == GD_VAL_FLOAT) object->rotation = val.f;
+                break;
+            case 57: // Groups
+                if (type == GD_VAL_INT_ARRAY) {
+                    for (int i = 0; i < MAX_GROUPS_PER_OBJECT; i++) {
+                        object->groups[i] = val.int_array[i];
+                    }
+                }
                 break;
         }
 
@@ -826,7 +895,6 @@ GameObject *convert_to_game_object(const GDObject *obj) {
                 case 44: // Detail col HSV
                     if (type == GD_VAL_HSV) object->object.detail_col_HSV = val.hsv;
                     break;
-                    
                 case 128: // Scale x
                     if (type == GD_VAL_FLOAT) object->object.scale_x = val.f;
                     break;
@@ -835,7 +903,9 @@ GameObject *convert_to_game_object(const GDObject *obj) {
                     break;
             }
         } else {
-            if (key == 11) { // Touch triggered
+            if (key == 10) { // Duration
+                if (type == GD_VAL_FLOAT) object->trigger.trig_duration = val.f;
+            } else if (key == 11) { // Touch triggered
                 if (type == GD_VAL_BOOL) object->trigger.touchTriggered = val.b;
             }
             switch (object->type) {
@@ -849,9 +919,6 @@ GameObject *convert_to_game_object(const GDObject *obj) {
                             break;
                         case 9:  // Color B
                             if (type == GD_VAL_INT) object->trigger.col_trigger.trig_colorB = val.i;
-                            break;
-                        case 10: // Duration
-                            if (type == GD_VAL_FLOAT) object->trigger.col_trigger.trig_duration = val.f;
                             break;
                         case 14: // Tint Ground
                             if (type == GD_VAL_BOOL) object->trigger.col_trigger.tintGround = val.b;
@@ -873,6 +940,27 @@ GameObject *convert_to_game_object(const GDObject *obj) {
                             break;
                         case 50: // Copy color ID
                             if (type == GD_VAL_INT) object->trigger.col_trigger.copied_color_id = val.i;
+                            break;
+                    }
+                case MOVE_TRIGGER:
+                    switch (key) {
+                        case 28:  // Offset X
+                            if (type == GD_VAL_INT) object->trigger.move_trigger.offsetX = val.i;
+                            break;
+                        case 29:  // Offset Y
+                            if (type == GD_VAL_INT) object->trigger.move_trigger.offsetY = val.i;
+                            break;
+                        case 30:  // Easing
+                            if (type == GD_VAL_INT) object->trigger.move_trigger.easing = val.i;
+                            break;
+                        case 51: // Target group id
+                            if (type == GD_VAL_INT) object->trigger.move_trigger.target_group = val.i;
+                            break;
+                        case 58: // Lock to player x
+                            if (type == GD_VAL_BOOL) object->trigger.move_trigger.lock_to_player_x = val.b;
+                            break;
+                        case 59: // Lock to player y
+                            if (type == GD_VAL_BOOL) object->trigger.move_trigger.lock_to_player_y = val.b;
                             break;
                     }
                 default:
@@ -917,6 +1005,8 @@ GameObject *convert_to_game_object(const GDObject *obj) {
         object->height = hitbox.height * object->object.scale_y;
     }
 
+    // Register its groups
+    register_object(object);
 
     return object;
 }
@@ -961,6 +1051,13 @@ GDGameObjectList *convert_all_to_game_objects(GDObjectList *objList) {
 
     gameObjectList->count = objList->objectCount;
     gameObjectList->objects = objectArray;
+
+    origPositionsList = malloc(sizeof(struct ObjectPos) * objList->objectCount);
+
+    for (int i = 0; i < objList->objectCount; i++) {
+        origPositionsList[i].x = gameObjectList->objects[i]->x;
+        origPositionsList[i].y = gameObjectList->objects[i]->y;
+    }
 
     return gameObjectList;
 }
@@ -1447,6 +1544,8 @@ int parse_old_channels(char *level_string, GDColorChannel **outArray) {
 }
 
 GDGameObjectList *objectsArrayList = NULL;
+struct ObjectPos *origPositionsList = NULL;
+
 GDObjectLayerList *layersArrayList = NULL;
 int channelCount = 0;
 GDColorChannel *colorChannels = NULL;
@@ -1590,7 +1689,8 @@ int load_level(char *data, bool is_custom) {
         layersArrayList = fill_layers_array(objectsArrayList);
     }
     
-    memset(trigger_buffer, 0, sizeof(trigger_buffer));
+    memset(col_trigger_buffer, 0, sizeof(col_trigger_buffer));
+    memset(move_trigger_buffer, 0, sizeof(move_trigger_buffer));
 
     level_info.pulsing_type = random_int(0,2);
 
@@ -1630,11 +1730,16 @@ void unload_level() {
         objectsArrayList = NULL;
     }
 
+    if (origPositionsList) {
+        free(origPositionsList);
+        origPositionsList = NULL;
+    }
+
     if (colorChannels) {
         free(colorChannels);
         colorChannels = NULL;
     }
-    
+    clear_groups();
 
     GRRLIB_FreeTexture(bg);
     GRRLIB_FreeTexture(ground);
@@ -1736,7 +1841,8 @@ char *get_author_name(char *data_ptr) {
 }
 
 void reload_level() {
-    memset(trigger_buffer, 0, sizeof(trigger_buffer));
+    memset(col_trigger_buffer, 0, sizeof(col_trigger_buffer));
+    memset(move_trigger_buffer, 0, sizeof(move_trigger_buffer));
     memset(&state.particles, 0, sizeof(state.particles));
     for (int i = 0; i < objectsArrayList->count; i++) {
         GameObject *obj = objectsArrayList->objects[i];
@@ -1745,6 +1851,10 @@ void reload_level() {
         obj->collided[0] = obj->collided[1] = FALSE;
         obj->hitbox_counter[0] = obj->hitbox_counter[1] = 0;
         obj->transition_applied = FADE_NONE;
+        obj->x = origPositionsList[i].x;
+        obj->y = origPositionsList[i].y;
+        obj->object.delta_x = 0;
+        obj->object.delta_y = 0;
     }
     reset_color_channels();
     set_color_channels();

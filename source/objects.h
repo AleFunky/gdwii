@@ -16,6 +16,8 @@
 #define FADING_OBJ_WIDTH 180
 #define FADING_OBJ_PADDING 90
 
+#define MAX_MOVING_OBJECTS 50
+
 enum Objects {
     PLAYER_OBJECT,
     BASIC_BLOCK,
@@ -1008,7 +1010,7 @@ struct ColorChannel {
     int copy_color_id;
 };
 
-struct TriggerBuffer {
+struct ColTriggerBuffer {
     bool active;
     Color old_color;
     Color new_color;
@@ -1016,6 +1018,31 @@ struct TriggerBuffer {
     HSV copy_channel_HSV;
     float seconds;
     float time_run;
+};
+
+struct ObjectPos {
+    float x;
+    float y;
+};
+
+#define MAX_OBJECTS_IN_GROUP 1000
+
+#define MOVE_SPEED_DIVIDER 315
+
+struct MoveTriggerBuffer {
+    bool active;
+    int target_group;      // key 51
+    int offsetX;           // key 28
+    int offsetY;           // key 29
+    int easing;            // key 30
+    u8 lock_to_player_x:1; // key 58
+    u8 lock_to_player_y:1; // key 59
+
+    float seconds;
+    float time_run;
+
+    int objects_in_group;
+    struct ObjectPos initial_positions[MAX_OBJECTS_IN_GROUP];
 };
 
 enum HitboxTypes {
@@ -1085,7 +1112,8 @@ extern const ObjectDefinition objects[];
 
 extern GRRLIB_texImg *object_images[OBJECT_COUNT][MAX_OBJECT_LAYERS];
 
-extern struct TriggerBuffer trigger_buffer[COL_CHANNEL_COUNT];
+extern struct ColTriggerBuffer col_trigger_buffer[COL_CHANNEL_COUNT];
+extern struct MoveTriggerBuffer move_trigger_buffer[MAX_MOVING_OBJECTS];
 
 extern int layersDrawn;
 

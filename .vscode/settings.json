@@ -362,7 +362,8 @@
         "numeric": "c",
         "stdexcept": "c",
         "streambuf": "c",
-        "system_error": "c"
+        "system_error": "c",
+        "groups.h": "c"
     },
     "cmake.ignoreCMakeListsMissing": true
 }

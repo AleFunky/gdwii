@@ -7,7 +7,7 @@
 
 float executeEase(EaseTypes ease, float time, float period) {
     switch (ease) {
-        case LINEAR:
+        case EASE_LINEAR:
             return linear(time);
 
         case EASE_IN:

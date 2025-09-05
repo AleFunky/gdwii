@@ -2,11 +2,14 @@
 
 #include "math.h"
 
+#define MAX_GROUPS_PER_OBJECT 20
+
 typedef enum {
     GD_VAL_INT,
     GD_VAL_FLOAT,
     GD_VAL_BOOL,
     GD_VAL_HSV,
+    GD_VAL_INT_ARRAY,
     GD_VAL_UNKNOWN
 } GDValueType;
 
@@ -14,6 +17,7 @@ typedef union {
     int i;
     float f;
     bool b;
+    short int_array[MAX_GROUPS_PER_OBJECT]; // For groups
     HSV hsv;
 } GDValue;
 
@@ -26,17 +30,27 @@ typedef struct {
     u8 p2_color:1;       // key 16
     u8 blending:1;       // key 17
     
-    float trig_duration; // key 10
-    
     int target_color_id; // key 23
     HSV copied_hsv;      // key 49
     int copied_color_id; // key 50
 } ColTrigger;
 
 typedef struct {
+    int offsetX;           // key 28
+    int offsetY;           // key 29
+    int easing;            // key 30
+    int target_group;      // key 51
+    u8 lock_to_player_x:1; // key 58
+    u8 lock_to_player_y:1; // key 59
+} MoveTrigger;
+
+typedef struct {
+    float trig_duration; // key 10
     u8 touchTriggered; // key 11
+    
     union {
         ColTrigger col_trigger;
+        MoveTrigger move_trigger;
     };
 } Trigger;
 
@@ -57,13 +71,19 @@ typedef struct {
     HSV main_col_HSV;
     HSV detail_col_HSV;
 
+    float delta_x;
+    float delta_y;
+
+    unsigned char touching_player;
+    unsigned char prev_touching_player;
     // Slope
     unsigned char orientation;
 } NormalObject;
 
 typedef enum {
     NORMAL_OBJECT,
-    COL_TRIGGER
+    COL_TRIGGER,
+    MOVE_TRIGGER,
 } ObjectType;
 
 typedef struct {
@@ -76,6 +96,7 @@ typedef struct {
     bool flippedH;       // key 4
     bool flippedV;       // key 5
     float rotation;      // key 6
+    short groups[MAX_GROUPS_PER_OBJECT]; // key 57
     
     union {
         NormalObject object;
@@ -213,6 +234,7 @@ unsigned int section_hash_func(int x, int y);
 Section *get_or_create_section(int x, int y);
 GFXSection *get_or_create_gfx_section(int x, int y);
 void free_sections(void);
+void update_object_section(GameObject *obj, float new_x, float new_y);
 
 char *get_level_name(char *data_ptr);
 char *get_author_name(char *data_ptr);
@@ -222,6 +244,7 @@ extern struct LoadedLevelInfo level_info;
 
 extern GDGameObjectList *objectsArrayList;
 extern GDObjectLayerList *layersArrayList;
+extern struct ObjectPos *origPositionsList;
 
 extern GDLayerSortable gfx_player_layer;
 extern GameObject *player_game_object;
