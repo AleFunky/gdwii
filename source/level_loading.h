@@ -253,7 +253,13 @@ int compare_sortable_layers(const void *a, const void *b);
 
 extern struct LoadedLevelInfo level_info;
 
+struct ObjectPos {
+    float x;
+    float y;
+};
+
 extern GDGameObjectList *objectsArrayList;
+extern struct ObjectPos *origPositionsList;
 extern GDObjectLayerList *layersArrayList;
 
 extern GDLayerSortable gfx_player_layer;

@@ -1103,6 +1103,13 @@ GDGameObjectList *convert_all_to_game_objects(GDObjectList *objList) {
     gameObjectList->count = objList->objectCount;
     gameObjectList->objects = objectArray;
 
+    origPositionsList = malloc(sizeof(struct ObjectPos) * objList->objectCount);
+
+    for (int i = 0; i < objList->objectCount; i++) {
+        origPositionsList[i].x = gameObjectList->objects[i]->x;
+        origPositionsList[i].y = gameObjectList->objects[i]->y;
+    }
+
     return gameObjectList;
 }
 
@@ -1588,6 +1595,7 @@ int parse_old_channels(char *level_string, GDColorChannel **outArray) {
 }
 
 GDGameObjectList *objectsArrayList = NULL;
+struct ObjectPos *origPositionsList = NULL;
 
 GDObjectLayerList *layersArrayList = NULL;
 int channelCount = 0;
@@ -1777,6 +1785,13 @@ void unload_level() {
         free(colorChannels);
         colorChannels = NULL;
     }
+    
+    if (origPositionsList) {
+        free(origPositionsList);
+        origPositionsList = NULL;
+    }
+
+
     clear_groups();
 
     GRRLIB_FreeTexture(bg);
@@ -1903,6 +1918,8 @@ void reload_level() {
         obj->object.delta_x = 0;
         obj->object.delta_y = 0;
         obj->opacity = 1.f;
+        obj->x = origPositionsList[i].x;
+        obj->y = origPositionsList[i].y;
     }
     reset_color_channels();
     set_color_channels();
