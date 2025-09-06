@@ -959,7 +959,7 @@ void draw_obj_particles(int group_id, GameObject *parent_obj) {
                             p->color.r,
                             p->color.g,
                             p->color.b,
-                            p->color.a * (get_fade_value(x, screenWidth) / 255.f)
+                            p->color.a * (get_fade_value(x, screenWidth) / 255.f) * parent_obj->opacity
                         ), TRUE
                     );
                     break;
@@ -971,7 +971,7 @@ void draw_obj_particles(int group_id, GameObject *parent_obj) {
                             p->color.r,
                             p->color.g,
                             p->color.b,
-                            p->color.a * (get_fade_value(x, screenWidth) / 255.f)
+                            p->color.a * (get_fade_value(x, screenWidth) / 255.f) * parent_obj->opacity
                         )
                     );
                     break;
@@ -983,7 +983,7 @@ void draw_obj_particles(int group_id, GameObject *parent_obj) {
                             p->color.r,
                             p->color.g,
                             p->color.b,
-                            p->color.a * (get_fade_value(x, screenWidth) / 255.f)
+                            p->color.a * (get_fade_value(x, screenWidth) / 255.f) * parent_obj->opacity
                         ),
                         2
                     );

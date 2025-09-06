@@ -529,7 +529,7 @@ void handle_special_hitbox(Player *player, GameObject *obj, ObjectHitbox *hitbox
                     player->snap_rotation = TRUE;
                     flip_other_player(state.current_player ^ 1);
 
-                    if (state.old_player.gamemode == GAMEMODE_SHIP || state.old_player.gamemode == GAMEMODE_CUBE) {
+                    if (state.old_player.gamemode == GAMEMODE_CUBE || state.old_player.gamemode == GAMEMODE_SHIP || state.old_player.gamemode == GAMEMODE_WAVE) {
                         player->buffering_state = BUFFER_READY;
                     }
 
@@ -832,7 +832,8 @@ int current_fading_effect = FADE_NONE;
 bool p1_trail = FALSE;
 
 struct ColTriggerBuffer col_trigger_buffer[COL_CHANNEL_COUNT];
-struct MoveTriggerBuffer move_trigger_buffer[MAX_MOVING_OBJECTS];
+struct MoveTriggerBuffer move_trigger_buffer[MAX_MOVING_CHANNELS];
+struct AlphaTriggerBuffer alpha_trigger_buffer[MAX_ALPHA_CHANNELS];
 
 int find_existing_texture(int curr_object, const unsigned char *texture) {
     for (s32 object = 1; object < curr_object; object++) {
@@ -1407,7 +1408,7 @@ u32 get_layer_color(GameObject *obj, GDObjectLayer *layer, int col_channel, floa
         color = HSV_combine(color, obj->object.detail_col_HSV);
         //printf("%.2f, %.2f, %.2f, %i %i\n", obj->object.detail_col_HSV.h, obj->object.detail_col_HSV.s, obj->object.detail_col_HSV.v, obj->object.detail_col_HSV.sChecked, obj->object.detail_col_HSV.vChecked);
     }
-    return RGBA(color.r, color.g, color.b, opacity);
+    return RGBA(color.r, color.g, color.b, opacity * channels[col_channel].alpha * obj->opacity);
 }
 
 static inline void put_object_layer(GameObject *obj, float x, float y, GDObjectLayer *layer) {
@@ -1960,19 +1961,25 @@ void handle_col_triggers() {
         if (buffer->active) {
             Color lerped_color;
             Color color_to_lerp = buffer->new_color;
+            float alpha_to_lerp = buffer->new_alpha;
+            float lerped_alpha;
 
             if (buffer->copy_channel_id) {
                 color_to_lerp = channels[buffer->copy_channel_id].color;
+                alpha_to_lerp = channels[buffer->copy_channel_id].alpha;
             }
 
             if (buffer->seconds > 0) {
                 float multiplier = buffer->time_run / buffer->seconds;
                 lerped_color = color_lerp(buffer->old_color, color_to_lerp, multiplier);
+                lerped_alpha = (alpha_to_lerp - buffer->old_alpha) * multiplier + buffer->old_alpha;
             } else {
                 lerped_color = color_to_lerp;
+                lerped_alpha = alpha_to_lerp;
             }
 
             channels[chan].color = lerped_color;
+            channels[chan].alpha = lerped_alpha;
 
             buffer->time_run += STEPS_DT;
 
@@ -1985,6 +1992,7 @@ void handle_col_triggers() {
                     channels[chan].copy_color_id = 0;
                 }
                 channels[chan].color = color_to_lerp;
+                channels[chan].alpha = alpha_to_lerp;
             }
         }
     }
@@ -2006,18 +2014,22 @@ void upload_to_buffer(GameObject *obj, int channel) {
     struct ColTriggerBuffer *buffer = &col_trigger_buffer[channel];
     buffer->active = TRUE;
     buffer->old_color = channels[channel].color;
+    buffer->old_alpha = channels[channel].alpha;
     if (obj->trigger.col_trigger.p1_color) {
         buffer->new_color.r = p1.r;
         buffer->new_color.g = p1.g;
         buffer->new_color.b = p1.b;
+        buffer->new_alpha = 1.f;
     } else if (obj->trigger.col_trigger.p2_color) {
         buffer->new_color.r = p2.r;
         buffer->new_color.g = p2.g;
         buffer->new_color.b = p2.b;
+        buffer->new_alpha = 1.f;
     } else {
         buffer->new_color.r = obj->trigger.col_trigger.trig_colorR;
         buffer->new_color.g = obj->trigger.col_trigger.trig_colorG;
         buffer->new_color.b = obj->trigger.col_trigger.trig_colorB;
+        buffer->new_alpha   = obj->trigger.col_trigger.opacity;
     }
 
     int copy_color_id = obj->trigger.col_trigger.copied_color_id;
@@ -2068,7 +2080,7 @@ int convert_ease(int easing) {
 
 void handle_move_triggers() {
     // First reset deltas
-    for (int slot = 0; slot < MAX_MOVING_OBJECTS; slot++) {
+    for (int slot = 0; slot < MAX_MOVING_CHANNELS; slot++) {
         struct MoveTriggerBuffer *buffer = &move_trigger_buffer[slot];
 
         if (buffer->active) {
@@ -2079,7 +2091,7 @@ void handle_move_triggers() {
         }
     }
 
-    for (int slot = 0; slot < MAX_MOVING_OBJECTS; slot++) {
+    for (int slot = 0; slot < MAX_MOVING_CHANNELS; slot++) {
         struct MoveTriggerBuffer *buffer = &move_trigger_buffer[slot];
 
         if (buffer->active) {
@@ -2195,8 +2207,92 @@ void handle_move_triggers() {
     }
 }
 
+int obtain_free_alpha_slot() {
+    for (int i = 0; i < MAX_ALPHA_CHANNELS; i++) {
+        if (!alpha_trigger_buffer[i].active) return i;
+    }
+    return -1;
+}
+
+void upload_to_alpha_buffer(GameObject *obj) {
+    int slot = obtain_free_alpha_slot();
+    if (slot >= 0) {
+        struct AlphaTriggerBuffer *buffer = &alpha_trigger_buffer[slot];
+
+        buffer->new_alpha = obj->trigger.alpha_trigger.opacity;
+        buffer->target_group = obj->trigger.alpha_trigger.target_group;
+
+        buffer->time_run = 0;
+        buffer->seconds = obj->trigger.trig_duration;
+        
+        int count = 0;
+
+        float capacity = 8;
+        
+        float *opacities = malloc(sizeof(float) * capacity); // Initial 8
+
+        for (Node *p = get_group(buffer->target_group); p; p = p->next) {
+            if (count >= capacity) {
+                capacity *= 2; // grow exponentially
+                float *tmp = realloc(opacities, sizeof(float) * capacity);
+                if (!tmp) {
+                    free(opacities);
+                    printf("Couldn't allocate alpha values\n");
+                    return;
+                }
+                opacities = tmp;
+            }
+
+            GameObject *obj = p->obj;
+            opacities[count++] = obj->opacity;
+        }
+        buffer->initial_opacities = opacities;
+        
+        buffer->active = TRUE;
+    }
+}
+
+void handle_alpha_triggers() {
+    for (int slot = 0; slot < MAX_ALPHA_CHANNELS; slot++) {
+        struct AlphaTriggerBuffer *buffer = &alpha_trigger_buffer[slot];
+        
+        if (buffer->active) {
+            int i = 0;
+            for (Node *p = get_group(buffer->target_group); p; p = p->next) {
+                GameObject *obj = p->obj;
+                float lerped_alpha;
+
+                if (buffer->seconds > 0) {
+                    float multiplier = buffer->time_run / buffer->seconds;
+                    lerped_alpha = (buffer->new_alpha - buffer->initial_opacities[i]) * multiplier + buffer->initial_opacities[i];
+                } else {
+                    lerped_alpha = buffer->new_alpha;
+                }
+
+                obj->opacity = lerped_alpha;
+
+                i++;
+            }
+            buffer->time_run += STEPS_DT;
+
+            if (buffer->time_run > buffer->seconds) {
+                buffer->active = FALSE;
+
+                // Set new alpha on all objects
+                for (Node *p = get_group(buffer->target_group); p; p = p->next) {
+                    GameObject *obj = p->obj;
+                    obj->opacity = buffer->new_alpha;
+                }
+
+                free(buffer->initial_opacities);
+            }
+        }
+    }
+}
+
+
 int obtain_free_move_slot() {
-    for (int i = 0; i < MAX_MOVING_OBJECTS; i++) {
+    for (int i = 0; i < MAX_MOVING_CHANNELS; i++) {
         if (!move_trigger_buffer[i].active) return i;
     }
     return -1;
@@ -2325,6 +2421,10 @@ void run_trigger(GameObject *obj) {
         case 901: // Move trigger
             upload_to_move_buffer(obj);
             break;
+
+        case 1007: // Alpha trigger
+            upload_to_alpha_buffer(obj);
+            break;
     }
     obj->activated[0] = TRUE;
 }
@@ -2382,7 +2482,7 @@ void update_beat() {
 void handle_objects() {
     int sx = (int)(state.player.x / SECTION_SIZE);
     for (int dx = -1; dx <= 1; dx++) {
-        for (int sy = 0; sy <= MAX_LEVEL_HEIGHT / SECTION_SIZE; sy++) {
+        for (int sy = -400; sy <= MAX_LEVEL_HEIGHT / SECTION_SIZE; sy++) {
             Section *sec = get_or_create_section(sx + dx, sy);
             for (int i = 0; i < sec->object_count; i++) {
                 GameObject *obj = sec->objects[i];
@@ -2393,5 +2493,6 @@ void handle_objects() {
     calculate_lbg();
     handle_col_triggers();
     handle_move_triggers();
+    handle_alpha_triggers();
     handle_copy_channels();
 }

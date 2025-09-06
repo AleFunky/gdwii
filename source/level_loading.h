@@ -25,6 +25,8 @@ typedef struct {
     u8 trig_colorR;      // key 7
     u8 trig_colorG;      // key 8
     u8 trig_colorB;      // key 9
+    float opacity;          // key 35
+
     u8 tintGround:1;     // key 14
     u8 p1_color:1;       // key 15
     u8 p2_color:1;       // key 16
@@ -34,6 +36,11 @@ typedef struct {
     HSV copied_hsv;      // key 49
     int copied_color_id; // key 50
 } ColTrigger;
+
+typedef struct {
+    float opacity;       // key 35
+    int target_group;    // key 51
+} AlphaTrigger;
 
 typedef struct {
     int offsetX;           // key 28
@@ -51,6 +58,7 @@ typedef struct {
     union {
         ColTrigger col_trigger;
         MoveTrigger move_trigger;
+        AlphaTrigger alpha_trigger;
     };
 } Trigger;
 
@@ -84,6 +92,7 @@ typedef enum {
     NORMAL_OBJECT,
     COL_TRIGGER,
     MOVE_TRIGGER,
+    ALPHA_TRIGGER,
 } ObjectType;
 
 typedef struct {
@@ -97,6 +106,8 @@ typedef struct {
     bool flippedV;       // key 5
     float rotation;      // key 6
     short groups[MAX_GROUPS_PER_OBJECT]; // key 57
+    
+    float opacity;
     
     union {
         NormalObject object;

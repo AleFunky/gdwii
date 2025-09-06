@@ -606,6 +606,7 @@ GDValueType get_value_type_for_key(int key) {
         case 29: return GD_VAL_INT;    // (Move trigger) Offset Y
         case 30: return GD_VAL_INT;    // (Various) Easing
         case 32: return GD_VAL_FLOAT;  // Scale
+        case 35: return GD_VAL_FLOAT;  // (Color trigger) Opacity
         case 41: return GD_VAL_BOOL;   // Main col HSV enabled
         case 42: return GD_VAL_BOOL;   // Detail col HSV enabled
         case 43: return GD_VAL_HSV;    // Main col HSV
@@ -830,6 +831,8 @@ ObjectType obtain_type_from_id(int id) {
             return COL_TRIGGER;
         case 901:
             return MOVE_TRIGGER;
+        case 1007:
+            return ALPHA_TRIGGER;
 
     }
     return NORMAL_OBJECT;
@@ -857,8 +860,9 @@ GameObject *convert_to_game_object(const GDObject *obj) {
 
     // Temporarily convert user coins (added in 2.0) into secret coins
     object->id = convert_object(object->id);
+    object->opacity = 1.f;
 
-    if (object->id >= OBJECT_COUNT && object->id != 901 && object->id != 899 && object->id != 915) {
+    if (object->id >= OBJECT_COUNT && object->id != 901 && object->id != 899 && object->id != 915 && object->id != 1007) {
         object->id = 42;
     }
 
@@ -969,6 +973,9 @@ GameObject *convert_to_game_object(const GDObject *obj) {
                         case 23: // Target color ID
                             if (type == GD_VAL_INT) object->trigger.col_trigger.target_color_id = val.i;
                             break;
+                        case 35: // Opacity
+                            if (type == GD_VAL_FLOAT) object->trigger.col_trigger.opacity = val.f;
+                            break;
                         case 49: // Copy color HSV
                             if (type == GD_VAL_HSV) object->trigger.col_trigger.copied_hsv = val.hsv;
                             break;
@@ -976,6 +983,17 @@ GameObject *convert_to_game_object(const GDObject *obj) {
                             if (type == GD_VAL_INT) object->trigger.col_trigger.copied_color_id = val.i;
                             break;
                     }
+                    break;
+                case ALPHA_TRIGGER:
+                    switch (key) {
+                        case 35: // Opacity
+                            if (type == GD_VAL_FLOAT) object->trigger.alpha_trigger.opacity = val.f;
+                            break;
+                        case 51: // Target group id
+                            if (type == GD_VAL_INT) object->trigger.alpha_trigger.target_group = val.i;
+                            break;
+                    }
+                    break;
                 case MOVE_TRIGGER:
                     switch (key) {
                         case 28:  // Offset X
@@ -1001,7 +1019,6 @@ GameObject *convert_to_game_object(const GDObject *obj) {
                     break;
             }
         }
-        
     }
     
     // Modify level ending pos
@@ -1776,45 +1793,55 @@ void reset_color_channels() {
         channels[i].color.r = 255;
         channels[i].color.g = 255;
         channels[i].color.b = 255;
+        channels[i].alpha = 1.f;
         channels[i].blending = FALSE;
     }
 
     channels[BG].color.r = 56;
     channels[BG].color.g = 121;
     channels[BG].color.b = 255;
+    channels[BG].alpha = 1.f;
     channels[BG].blending = FALSE;
     
     channels[GROUND].color.r = 56;
     channels[GROUND].color.g = 121;
     channels[GROUND].color.b = 255;
+    channels[GROUND].alpha = 1.f;
     channels[GROUND].blending = FALSE;
 
     channels[LINE].color.r = 255;
     channels[LINE].color.g = 255;
     channels[LINE].color.b = 255;
+    channels[LINE].alpha = 1.f;
     channels[LINE].blending = TRUE;
 
     channels[OBJ].color.r = 255;
     channels[OBJ].color.g = 255;
     channels[OBJ].color.b = 255;
+    channels[OBJ].alpha = 1.f;
     channels[OBJ].blending = FALSE;
 
+    channels[OBJ_BLENDING].alpha = 1.f;
     channels[OBJ_BLENDING].copy_color_id = OBJ;
     channels[OBJ_BLENDING].blending = TRUE;
 
     channels[P1].color = p1;
+    channels[P1].alpha = 1.f;
     channels[P1].blending = TRUE;
     channels[P2].color = p2;
+    channels[P2].alpha = 1.f;
     channels[P2].blending = TRUE;
     
     channels[BLACK].color.r = 0;
     channels[BLACK].color.g = 0;
     channels[BLACK].color.b = 0;
+    channels[BLACK].alpha = 1.f;
     channels[BLACK].blending = FALSE;
 
     channels[WHITE].color.r = 255;
     channels[WHITE].color.g = 255;
     channels[WHITE].color.b = 255;
+    channels[WHITE].alpha = 1.f;
     channels[WHITE].blending = FALSE;
 }
 
@@ -1837,6 +1864,7 @@ void set_color_channels() {
                     color.g = colorChannel.fromGreen;
                     color.b = colorChannel.fromBlue;
 
+                    channels[id].alpha = colorChannel.fromOpacity;
                     channels[id].blending = colorChannel.blending;
                     channels[id].copy_color_id = colorChannel.inheritedChannelID;
 
@@ -1874,6 +1902,7 @@ void reload_level() {
         obj->transition_applied = FADE_NONE;
         obj->object.delta_x = 0;
         obj->object.delta_y = 0;
+        obj->opacity = 1.f;
     }
     reset_color_channels();
     set_color_channels();

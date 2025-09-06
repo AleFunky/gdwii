@@ -16,7 +16,8 @@
 #define FADING_OBJ_WIDTH 180
 #define FADING_OBJ_PADDING 90
 
-#define MAX_MOVING_OBJECTS 50
+#define MAX_MOVING_CHANNELS 50
+#define MAX_ALPHA_CHANNELS 50
 
 enum Objects {
     PLAYER_OBJECT,
@@ -1005,6 +1006,7 @@ enum SpriteSheets {
 
 struct ColorChannel {
     Color color;
+    float alpha;
     HSV hsv;
     bool blending;
     int copy_color_id;
@@ -1013,16 +1015,13 @@ struct ColorChannel {
 struct ColTriggerBuffer {
     bool active;
     Color old_color;
+    float old_alpha;
     Color new_color;
+    float new_alpha;
     int copy_channel_id;
     HSV copy_channel_HSV;
     float seconds;
     float time_run;
-};
-
-struct ObjectPos {
-    float x;
-    float y;
 };
 
 #define MAX_OBJECTS_IN_GROUP 1000
@@ -1043,6 +1042,18 @@ struct MoveTriggerBuffer {
 
     float seconds;
     float time_run;
+};
+
+struct AlphaTriggerBuffer {
+    bool active;
+
+    int target_group;         
+    float new_alpha;
+
+    float seconds;
+    float time_run;
+
+    float *initial_opacities;
 };
 
 enum HitboxTypes {
@@ -1113,7 +1124,8 @@ extern const ObjectDefinition objects[];
 extern GRRLIB_texImg *object_images[OBJECT_COUNT][MAX_OBJECT_LAYERS];
 
 extern struct ColTriggerBuffer col_trigger_buffer[COL_CHANNEL_COUNT];
-extern struct MoveTriggerBuffer move_trigger_buffer[MAX_MOVING_OBJECTS];
+extern struct MoveTriggerBuffer move_trigger_buffer[MAX_MOVING_CHANNELS];
+extern struct AlphaTriggerBuffer alpha_trigger_buffer[MAX_ALPHA_CHANNELS];
 
 extern int layersDrawn;
 
