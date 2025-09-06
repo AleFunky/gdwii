@@ -2485,7 +2485,7 @@ void update_beat() {
 void handle_objects() {
     int sx = (int)(state.player.x / SECTION_SIZE);
     for (int dx = -1; dx <= 1; dx++) {
-        for (int sy = -400; sy <= MAX_LEVEL_HEIGHT / SECTION_SIZE; sy++) {
+        for (int sy = -(400 / SECTION_SIZE); sy <= MAX_LEVEL_HEIGHT / SECTION_SIZE; sy++) {
             Section *sec = get_or_create_section(sx + dx, sy);
             for (int i = 0; i < sec->object_count; i++) {
                 GameObject *obj = sec->objects[i];

@@ -1907,6 +1907,7 @@ char *get_author_name(char *data_ptr) {
 void reload_level() {
     memset(col_trigger_buffer, 0, sizeof(col_trigger_buffer));
     memset(move_trigger_buffer, 0, sizeof(move_trigger_buffer));
+    memset(alpha_trigger_buffer, 0, sizeof(alpha_trigger_buffer));
     memset(&state.particles, 0, sizeof(state.particles));
     for (int i = 0; i < objectsArrayList->count; i++) {
         GameObject *obj = objectsArrayList->objects[i];
