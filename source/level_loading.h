@@ -89,10 +89,10 @@ typedef struct {
 } NormalObject;
 
 typedef enum {
-    NORMAL_OBJECT,
-    COL_TRIGGER,
-    MOVE_TRIGGER,
-    ALPHA_TRIGGER,
+    TYPE_NORMAL_OBJECT,
+    TYPE_COL_TRIGGER,
+    TYPE_MOVE_TRIGGER,
+    TYPE_ALPHA_TRIGGER,
 } ObjectType;
 
 typedef struct {

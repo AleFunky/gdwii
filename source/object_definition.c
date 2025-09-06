@@ -14209,4 +14209,10 @@ const ObjectDefinition objects[OBJECT_COUNT] = {
     },
     trigger,
     trigger,
+
+    // 2.0 objects
+    
+    [COL_TRIGGER] = trigger,
+    [MOVE_TRIGGER] = trigger,
+    [ALPHA_TRIGGER] = trigger,
 };

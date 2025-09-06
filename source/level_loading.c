@@ -826,16 +826,16 @@ ObjectType obtain_type_from_id(int id) {
         case COL3_TRIGGER:
         case COL4_TRIGGER:
         case THREEDL_TRIGGER:
-        case 899: // 2.0 col trigger
-        case 915: // 2.0 line trigger
-            return COL_TRIGGER;
-        case 901:
-            return MOVE_TRIGGER;
-        case 1007:
-            return ALPHA_TRIGGER;
+        case COL_TRIGGER: // 2.0 col trigger
+        case 915:         // 2.0 line trigger
+            return TYPE_COL_TRIGGER;
+        case MOVE_TRIGGER:
+            return TYPE_MOVE_TRIGGER;
+        case ALPHA_TRIGGER:
+            return TYPE_ALPHA_TRIGGER;
 
     }
-    return NORMAL_OBJECT;
+    return TYPE_NORMAL_OBJECT;
 }
 
 GameObject *convert_to_game_object(const GDObject *obj) {
@@ -848,7 +848,7 @@ GameObject *convert_to_game_object(const GDObject *obj) {
     object->id = obj->values[0].i;
     object->type = obtain_type_from_id(object->id);
     
-    if (object->type == NORMAL_OBJECT) {
+    if (object->type == TYPE_NORMAL_OBJECT) {
         // Set to default colors
         object->object.main_col_channel = 0;
         object->object.detail_col_channel = 0;
@@ -862,7 +862,7 @@ GameObject *convert_to_game_object(const GDObject *obj) {
     object->id = convert_object(object->id);
     object->opacity = 1.f;
 
-    if (object->id >= OBJECT_COUNT && object->id != 901 && object->id != 899 && object->id != 915 && object->id != 1007) {
+    if (is_object_unimplemented(object->id)) {
         object->id = 42;
     }
 
@@ -901,7 +901,7 @@ GameObject *convert_to_game_object(const GDObject *obj) {
         }
 
         // Col trigger members
-        if (object->type == NORMAL_OBJECT) {
+        if (object->type == TYPE_NORMAL_OBJECT) {
             switch (key) {
                 case 19: // 1.9 channel id
                     if (type == GD_VAL_INT) object->object.u1p9_col_channel = convert_1p9_channel(val.i);
@@ -947,7 +947,7 @@ GameObject *convert_to_game_object(const GDObject *obj) {
                 if (type == GD_VAL_BOOL) object->trigger.touchTriggered = val.b;
             }
             switch (object->type) {
-                case COL_TRIGGER:
+                case TYPE_COL_TRIGGER:
                     switch (key) {
                         case 7:  // Color R
                             if (type == GD_VAL_INT) object->trigger.col_trigger.trig_colorR = val.i;
@@ -984,7 +984,7 @@ GameObject *convert_to_game_object(const GDObject *obj) {
                             break;
                     }
                     break;
-                case ALPHA_TRIGGER:
+                case TYPE_ALPHA_TRIGGER:
                     switch (key) {
                         case 35: // Opacity
                             if (type == GD_VAL_FLOAT) object->trigger.alpha_trigger.opacity = val.f;
@@ -994,7 +994,7 @@ GameObject *convert_to_game_object(const GDObject *obj) {
                             break;
                     }
                     break;
-                case MOVE_TRIGGER:
+                case TYPE_MOVE_TRIGGER:
                     switch (key) {
                         case 28:  // Offset X
                             if (type == GD_VAL_INT) object->trigger.move_trigger.offsetX = val.i;
@@ -1026,7 +1026,7 @@ GameObject *convert_to_game_object(const GDObject *obj) {
         level_info.last_obj_x = object->x;
     }
 
-    if (object->type == NORMAL_OBJECT) {
+    if (object->type == TYPE_NORMAL_OBJECT) {
         object->object.zsheetlayer = objects[object->id].spritesheet_layer;
         object->object.zlayer = objects[object->id].def_zlayer;
         object->object.zorder = objects[object->id].def_zorder;
@@ -1291,7 +1291,7 @@ GDObjectLayerList *fill_layers_array(GDGameObjectList *objList) {
     // Add player for rendering, not used for gameplay
     GameObject *obj = malloc(sizeof(GameObject));
     obj->id = PLAYER_OBJECT;
-    obj->type = NORMAL_OBJECT;
+    obj->type = TYPE_NORMAL_OBJECT;
     obj->object.zlayer = LAYER_T1-1;
     obj->object.zorder = 0;
     obj->object.zsheetlayer = 0;
@@ -1320,7 +1320,7 @@ GDObjectLayerList *fill_layers_array(GDGameObjectList *objList) {
         int obj_id = obj->id;
         int obj_type = obj->type;
 
-        if (obj_id < OBJECT_COUNT && obj_type == NORMAL_OBJECT)
+        if (obj_id < OBJECT_COUNT && obj_type == TYPE_NORMAL_OBJECT)
             for (int j = 0; j < objects[obj->id].num_layers; j++) {
                 struct ObjectLayer *layer = (struct ObjectLayer *) &objects[obj->id].layers[j];
                 layers[count].layer = layer;
@@ -1493,6 +1493,7 @@ int parse_old_channels(char *level_string, GDColorChannel **outArray) {
     bg_channel.fromRed = bg_r;
     bg_channel.fromGreen = bg_g;
     bg_channel.fromBlue = bg_b;
+    bg_channel.fromOpacity = 1.f;
 
     char *bg_player_color = get_metadata_value(level_string, "kS16");
     if (bg_player_color) {
@@ -1512,6 +1513,7 @@ int parse_old_channels(char *level_string, GDColorChannel **outArray) {
     g_channel.fromRed = g_r;
     g_channel.fromGreen = g_g;
     g_channel.fromBlue = g_b;
+    g_channel.fromOpacity = 1.f;
 
     char *g_player_color = get_metadata_value(level_string, "kS17");
     if (g_player_color) {
@@ -1531,6 +1533,7 @@ int parse_old_channels(char *level_string, GDColorChannel **outArray) {
         line_channel.fromRed = atoi(line_r);
         line_channel.fromGreen = atoi(line_g);
         line_channel.fromBlue = atoi(line_b);
+        line_channel.fromOpacity = 1.f;
         
         char *line_player_color = get_metadata_value(level_string, "kS18");
         if (line_player_color) {
@@ -1552,6 +1555,7 @@ int parse_old_channels(char *level_string, GDColorChannel **outArray) {
         obj_channel.fromRed = atoi(obj_r);
         obj_channel.fromGreen = atoi(obj_g);
         obj_channel.fromBlue = atoi(obj_b);
+        obj_channel.fromOpacity = 1.f;
 
         char *obj_player_color = get_metadata_value(level_string, "kS19");
         if (obj_player_color) {
@@ -1573,6 +1577,7 @@ int parse_old_channels(char *level_string, GDColorChannel **outArray) {
         obj_2_channel.fromRed = atoi(obj_2_r);
         obj_2_channel.fromGreen = atoi(obj_2_g);
         obj_2_channel.fromBlue = atoi(obj_2_b);
+        obj_2_channel.fromOpacity = 1.f;
         
         char *obj_2_player_color = get_metadata_value(level_string, "kS20");
         if (obj_2_player_color) {
@@ -1946,6 +1951,7 @@ void calculate_lbg() {
     channels[LBG_NO_LERP].color.r = r;
     channels[LBG_NO_LERP].color.g = g;
     channels[LBG_NO_LERP].color.b = b;
+    channels[LBG_NO_LERP].alpha = 1.f;
     channels[LBG_NO_LERP].blending = TRUE;
 
     float factor = (channel.color.r + channel.color.g + channel.color.b) / 150.f;
@@ -1960,6 +1966,7 @@ void calculate_lbg() {
     channels[LBG].color.r = r;
     channels[LBG].color.g = g;
     channels[LBG].color.b = b;
+    channels[LBG].alpha = 1.f;
     channels[LBG].blending = TRUE;
 }
 

@@ -2417,15 +2417,15 @@ void run_trigger(GameObject *obj) {
             p1_trail = FALSE;
             break;
 
-        case 899: // 2.0 color trigger
+        case COL_TRIGGER: // 2.0 color trigger
             upload_to_buffer(obj, obj->trigger.col_trigger.target_color_id);
             break;
         
-        case 901: // Move trigger
+        case MOVE_TRIGGER: // Move trigger
             upload_to_move_buffer(obj);
             break;
 
-        case 1007: // Alpha trigger
+        case ALPHA_TRIGGER: // Alpha trigger
             upload_to_alpha_buffer(obj);
             break;
     }
@@ -2498,4 +2498,16 @@ void handle_objects() {
     handle_move_triggers();
     handle_alpha_triggers();
     handle_copy_channels();
+}
+
+bool is_object_unimplemented(int id) {
+    if (id >= OBJECT_COUNT) return TRUE;
+
+    const unsigned char *p = (const unsigned char*) &objects[id];
+    for (size_t i = 0; i < sizeof(ObjectDefinition); i++) {
+        if (p[i] != 0) {
+            return FALSE;
+        }
+    }
+    return TRUE;
 }

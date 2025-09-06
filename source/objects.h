@@ -938,7 +938,13 @@ enum Objects {
     COL4_TRIGGER,
     THREEDL_TRIGGER,
 
-    OBJECT_COUNT
+    COL_TRIGGER = 899,
+
+    MOVE_TRIGGER = 901,
+
+    ALPHA_TRIGGER = 1007,
+
+    OBJECT_COUNT = 1329 // 2.0 object count
 };
 
 enum ZLayers {
@@ -1165,3 +1171,5 @@ void do_ball_reflection();
 void set_particle_color(int template_id, int r, int g, int b);
 bool is_modifiable(int col_channel);
 void set_intended_ceiling();
+
+bool is_object_unimplemented(int id);
