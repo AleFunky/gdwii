@@ -2085,44 +2085,40 @@ void handle_move_triggers() {
         if (buffer->active) {
             // Iterate through group objects
             int i = 0;
+            
+            // Calculate delta
+            float delta_x;
+            float delta_y;
+            if (buffer->lock_to_player_x) {    
+                delta_x = state.player.vel_x * STEPS_DT;
+            } else {
+                float before_x = buffer->move_last_x;
+                float after_x = buffer->offsetX * easeTime(convert_ease(buffer->easing), buffer->time_run, buffer->seconds, 2.0f);
+                
+                delta_x = after_x - before_x;
+                buffer->move_last_x = after_x;
+            } 
+            
+            if (buffer->lock_to_player_y) {
+                delta_y = state.player.vel_y * STEPS_DT;;
+            } else {
+                float before_y = buffer->move_last_y;
+                float after_y = buffer->offsetY * easeTime(convert_ease(buffer->easing), buffer->time_run, buffer->seconds, 2.0f);
+
+                delta_y = after_y - before_y;
+                buffer->move_last_y = after_y;
+            }
+
             for (Node *p = get_group(buffer->target_group); p; p = p->next) {
                 GameObject *obj = p->obj;
-
-                float player_delta_x = state.player.vel_x * STEPS_DT;
-                float player_delta_y = state.player.vel_y * STEPS_DT;
-
-                // Calculate delta
-                float delta_x;
-                float delta_y;
-                if (buffer->lock_to_player_x) {
-                    delta_x = player_delta_x;
-                } else {
-                    float initial_x = buffer->initial_positions[i].x;
-                    float final_x = initial_x + buffer->offsetX;
-                    
-                    float before_x = easeValue(convert_ease(buffer->easing), initial_x, final_x, buffer->time_run - STEPS_DT, buffer->seconds, 2.0f);
-                    float after_x = easeValue(convert_ease(buffer->easing), initial_x, final_x, buffer->time_run, buffer->seconds, 2.0f);
-                    
-                    delta_x = after_x - before_x;
-                } 
                 
-                if (buffer->lock_to_player_y) {
-                    delta_y = player_delta_y;
-                } else {
-                    float initial_y = buffer->initial_positions[i].y;
-                    float final_y = initial_y + buffer->offsetY;
-
-                    float before_y = easeValue(convert_ease(buffer->easing), initial_y, final_y, buffer->time_run - STEPS_DT, buffer->seconds, 2.0f);
-                    float after_y = easeValue(convert_ease(buffer->easing), initial_y, final_y, buffer->time_run, buffer->seconds, 2.0f);
-
-                    delta_y = after_y - before_y;
-                }
-
                 float new_x = obj->x + delta_x;
                 float new_y = obj->y + delta_y;
 
                 obj->object.delta_x += delta_x / STEPS_DT;
                 obj->object.delta_y += delta_y / STEPS_DT;
+
+                update_object_section(obj, new_x, new_y);
 
                 if (obj->object.touching_player) {
                     Player *player;
@@ -2157,14 +2153,8 @@ void handle_move_triggers() {
                     }
                 }
 
-                update_object_section(obj, new_x, new_y);
-                
-                obj->x = new_x;
-                obj->y = new_y;
-
                 i++;
             }
-            //printf("%d objects damn\n", i);
             buffer->time_run += STEPS_DT;
 
             if (buffer->time_run > buffer->seconds) {
@@ -2230,13 +2220,8 @@ void upload_to_move_buffer(GameObject *obj) {
         buffer->time_run = 0;
         buffer->seconds = obj->trigger.trig_duration;
 
-        int i = 0;
-        for (Node *p = get_group(buffer->target_group); p && i < MAX_OBJECTS_IN_GROUP; p = p->next) {
-            buffer->initial_positions[i].x = p->obj->x;
-            buffer->initial_positions[i].y = p->obj->y;
-            i++;
-        }
-        buffer->objects_in_group = i;
+        buffer->move_last_x = 0;
+        buffer->move_last_y = 0;
         
         buffer->active = TRUE;
     }

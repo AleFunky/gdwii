@@ -138,42 +138,6 @@ void assign_object_to_section(GameObject *obj) {
     sec->objects[sec->object_count++] = obj;
 }
 
-void update_object_section(GameObject *obj, float new_x, float new_y) {
-    if (!obj) return;
-
-    // obtain old section
-    int old_sx = (int)(obj->x / SECTION_SIZE);
-    int old_sy = (int)(obj->y / SECTION_SIZE);
-    unsigned int old_h = section_hash_func(old_sx, old_sy);
-
-    Section *sec = section_hash[old_h];
-    while (sec) {
-        if (sec->x == old_sx && sec->y == old_sy) {
-            // Remove object from old section
-            for (int i = 0; i < sec->object_count; i++) {
-                if (sec->objects[i] == obj) {
-                    // Shift elements down
-                    for (int j = i; j < sec->object_count - 1; j++) {
-                        sec->objects[j] = sec->objects[j + 1];
-                    }
-                    sec->object_count--;
-                    break;
-                }
-            }
-            break;
-        }
-        sec = sec->next;
-    }
-
-    // Update position
-    obj->x = new_x;
-    obj->y = new_y;
-
-    // Reassign object
-    assign_object_to_section(obj);
-}
-
-
 void assign_layer_to_section(GDLayerSortable *layer) {
     int sx = (int)(layer->layer->obj->x / GFX_SECTION_SIZE);
     int sy = (int)(layer->layer->obj->y / GFX_SECTION_SIZE);
@@ -185,6 +149,76 @@ void assign_layer_to_section(GDLayerSortable *layer) {
     sec->layers[sec->layer_count++] = layer;
 }
 
+void update_object_section(GameObject *obj, float new_x, float new_y) {
+    if (!obj) return;
+
+    int old_sx = (int)(obj->x / SECTION_SIZE);
+    int old_sy = (int)(obj->y / SECTION_SIZE);
+    int new_sx = (int)(new_x / SECTION_SIZE);
+    int new_sy = (int)(new_y / SECTION_SIZE);
+
+    int old_gfx_sx = (int)(obj->x / GFX_SECTION_SIZE);
+    int old_gfx_sy = (int)(obj->y / GFX_SECTION_SIZE);
+    int new_gfx_sx = (int)(new_x / GFX_SECTION_SIZE);
+    int new_gfx_sy = (int)(new_y / GFX_SECTION_SIZE);
+    
+    // Update position
+    obj->x = new_x;
+    obj->y = new_y;
+
+    if (new_sx != old_sx || new_sy != old_sy) {
+        // remove from old
+        unsigned int old_h = section_hash_func(old_sx, old_sy);
+        Section *sec = section_hash[old_h];
+        while (sec) {
+            if (sec->x == old_sx && sec->y == old_sy) {
+                for (int i = 0; i < sec->object_count; i++) {
+                    if (sec->objects[i] == obj) {
+                        sec->objects[i] = sec->objects[sec->object_count - 1];
+                        sec->object_count--;
+                        break;
+                    }
+                }
+                break;
+            }
+            sec = sec->next;
+        }
+
+        // reassign to new
+        assign_object_to_section(obj);
+    }
+
+    if (new_gfx_sx != old_gfx_sx || new_gfx_sy != old_gfx_sy) {
+        unsigned int old_gfx_h = section_hash_func(old_gfx_sx, old_gfx_sy);
+
+        int count = 0;
+        GDLayerSortable *layers_to_update[MAX_OBJECT_LAYERS];
+
+        GFXSection *sec_gfx = section_gfx_hash[old_gfx_h];
+        while (sec_gfx) {
+            if (sec_gfx->x == old_gfx_sx && sec_gfx->y == old_gfx_sy) {
+                int i = 0;
+                while (i < sec_gfx->layer_count) {
+                    // Remove layers from old section
+                    if (sec_gfx->layers[i]->layer->obj == obj) {
+                        layers_to_update[count++] = sec_gfx->layers[i];
+                        // Shift elements down
+                        sec_gfx->layers[i] = sec_gfx->layers[sec_gfx->layer_count - 1];
+                        sec_gfx->layer_count--;
+                        continue;
+                    }
+                    i++;
+                }
+                break;
+            }
+            sec_gfx = sec_gfx->next;
+        }
+        for (int i = 0; i < count; i++) {
+            // Reassign layers
+            assign_layer_to_section(layers_to_update[i]);
+        }
+    }
+}
 
 char *extract_gmd_key(const char *data, const char *key, const char *type) {
     char key_tag[32];
@@ -1052,13 +1086,6 @@ GDGameObjectList *convert_all_to_game_objects(GDObjectList *objList) {
     gameObjectList->count = objList->objectCount;
     gameObjectList->objects = objectArray;
 
-    origPositionsList = malloc(sizeof(struct ObjectPos) * objList->objectCount);
-
-    for (int i = 0; i < objList->objectCount; i++) {
-        origPositionsList[i].x = gameObjectList->objects[i]->x;
-        origPositionsList[i].y = gameObjectList->objects[i]->y;
-    }
-
     return gameObjectList;
 }
 
@@ -1544,7 +1571,6 @@ int parse_old_channels(char *level_string, GDColorChannel **outArray) {
 }
 
 GDGameObjectList *objectsArrayList = NULL;
-struct ObjectPos *origPositionsList = NULL;
 
 GDObjectLayerList *layersArrayList = NULL;
 int channelCount = 0;
@@ -1730,11 +1756,6 @@ void unload_level() {
         objectsArrayList = NULL;
     }
 
-    if (origPositionsList) {
-        free(origPositionsList);
-        origPositionsList = NULL;
-    }
-
     if (colorChannels) {
         free(colorChannels);
         colorChannels = NULL;
@@ -1851,8 +1872,6 @@ void reload_level() {
         obj->collided[0] = obj->collided[1] = FALSE;
         obj->hitbox_counter[0] = obj->hitbox_counter[1] = 0;
         obj->transition_applied = FADE_NONE;
-        obj->x = origPositionsList[i].x;
-        obj->y = origPositionsList[i].y;
         obj->object.delta_x = 0;
         obj->object.delta_y = 0;
     }

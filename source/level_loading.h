@@ -244,7 +244,6 @@ extern struct LoadedLevelInfo level_info;
 
 extern GDGameObjectList *objectsArrayList;
 extern GDObjectLayerList *layersArrayList;
-extern struct ObjectPos *origPositionsList;
 
 extern GDLayerSortable gfx_player_layer;
 extern GameObject *player_game_object;

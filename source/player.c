@@ -141,7 +141,6 @@ void handle_collision(Player *player, GameObject *obj, ObjectHitbox *hitbox) {
             } else if (obj_gravTop(player, obj) - gravBottom(player) <= clip && player->vel_y <= CLAMP(obj->object.delta_y, 3000, 0) && !slope_condition && player->gamemode != GAMEMODE_WAVE) {
                 player->y = grav(player, obj_gravTop(player, obj)) + grav(player, player->height / 2);
                 player->vel_y = 0;
-                printf("%.2f\n", obj->object.delta_y);
                 obj->object.touching_player = state.current_player + 1;
                 player->on_ground = TRUE;
                 player->inverse_rotation = FALSE;
@@ -162,7 +161,6 @@ void handle_collision(Player *player, GameObject *obj, ObjectHitbox *hitbox) {
                         obj->object.touching_player = state.current_player + 1;
                         player->y = grav(player, obj_gravBottom(player, obj)) - grav(player, player->height / 2);
                         player->vel_y = 0;
-                        printf("%.2f %.2f\n", obj->object.delta_y, player->vel_y);
                     }
                 }
             }

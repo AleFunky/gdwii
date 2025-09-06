@@ -111,6 +111,18 @@ float easeValue(EaseTypes ease, float start, float end, float elapsed, float dur
     return start + (end - start) * easedT;
 }
 
+float easeTime(EaseTypes ease, float elapsed, float duration, float period) {
+    if (duration <= 0.0f) return 1.f;
+
+    float t = elapsed / duration;    
+    if (t < 0.0f) t = 0.0f;
+    if (t > 1.0f) t = 1.0f;
+
+    float easedT = executeEase(ease, t, period);
+
+    return easedT;
+}
+
 float easeIn(float time, float rate)
 {
     return powf(time, rate);

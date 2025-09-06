@@ -1038,11 +1038,11 @@ struct MoveTriggerBuffer {
     u8 lock_to_player_x:1; // key 58
     u8 lock_to_player_y:1; // key 59
 
+    float move_last_x;
+    float move_last_y;
+
     float seconds;
     float time_run;
-
-    int objects_in_group;
-    struct ObjectPos initial_positions[MAX_OBJECTS_IN_GROUP];
 };
 
 enum HitboxTypes {
