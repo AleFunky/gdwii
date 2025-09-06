@@ -525,6 +525,8 @@ void parse_color_channel(GDColorChannel *channels, int i, char *channel_string) 
     int kvCount = 0;
     char **kvs = split_string(channel_string, '_', &kvCount);
 
+    channel.fromOpacity = 1.f;
+
     for (int j = 0; j + 1 < kvCount; j += 2) {
         int key = atoi(kvs[j]);
         const char *valStr = kvs[j + 1];
@@ -856,6 +858,8 @@ GameObject *convert_to_game_object(const GDObject *obj) {
 
         object->object.scale_x = 1.f;
         object->object.scale_y = 1.f;
+    } else if (object->type == TYPE_COL_TRIGGER) {
+        object->trigger.col_trigger.opacity = 1.f;
     }
 
     // Temporarily convert user coins (added in 2.0) into secret coins
