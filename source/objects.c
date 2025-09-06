@@ -1402,12 +1402,15 @@ u32 get_layer_color(GameObject *obj, GDObjectLayer *layer, int col_channel, floa
     color.g = channels[col_channel].color.g;
     color.b = channels[col_channel].color.b;
 
-    if (layer->layer->color_type == COLOR_MAIN && obj->object.main_col_HSV_enabled) {
+    if (get_main_channel_id(obj->id) <= 0 && obj->object.main_col_HSV_enabled) {
+        // Detail only objects use the main slot
+        color = HSV_combine(color, obj->object.main_col_HSV);
+    } else if (layer->layer->color_type == COLOR_MAIN && obj->object.main_col_HSV_enabled) {
         color = HSV_combine(color, obj->object.main_col_HSV);
     } else if (layer->layer->color_type == COLOR_DETAIL && obj->object.detail_col_HSV_enabled) {
         color = HSV_combine(color, obj->object.detail_col_HSV);
-        //printf("%.2f, %.2f, %.2f, %i %i\n", obj->object.detail_col_HSV.h, obj->object.detail_col_HSV.s, obj->object.detail_col_HSV.v, obj->object.detail_col_HSV.sChecked, obj->object.detail_col_HSV.vChecked);
     }
+
     return RGBA(color.r, color.g, color.b, opacity * channels[col_channel].alpha * obj->opacity);
 }
 
